@@ -1,0 +1,21 @@
+# ===== 依赖与构建产物 =====
+node_modules/
+miniprogram_npm/
+cloudfunctions/**/node_modules/
+
+# ===== 系统与日志 =====
+.DS_Store
+*.log
+
+# ===== 私有配置（含真实云环境 ID / AppKey，严禁提交）=====
+project.private.config.json
+utils/config.local.js
+.env
+.env.*
+!.env.example
+
+# ===== 编辑器 / 临时文件 =====
+.idea/
+.vscode/
+*.bak
+*.tmp

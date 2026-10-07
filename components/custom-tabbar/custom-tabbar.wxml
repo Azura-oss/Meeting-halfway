@@ -1,0 +1,12 @@
+<view class="custom-tabbar">
+  <view
+    class="tabbar-item {{active === item.key ? 'tabbar-item-active' : ''}}"
+    wx:for="{{list}}"
+    wx:key="key"
+    data-key="{{item.key}}"
+    bindtap="onTap"
+  >
+    <view class="tabbar-icon"></view>
+    <text class="tabbar-text">{{item.text}}</text>
+  </view>
+</view>

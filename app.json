@@ -1,0 +1,28 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/preference/preference",
+    "pages/result/result",
+    "pages/shop-detail/shop-detail",
+    "pages/favorites/favorites",
+    "pages/history/history"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTitleText": "哪见",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F5F5F5"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {           
+  "scope.userLocation": {
+    "desc": "你的位置信息将用于计算碰面点和绘制路线"
+  }
+},
+"requiredPrivateInfos": [          
+  "getLocation"
+]
+}

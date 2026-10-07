@@ -1,0 +1,91 @@
+<view class="page-container">
+
+  <view class="header">
+    <view class="header-title">还差一点</view>
+    <view class="header-subtitle">给每个人选出行方式，再选想去的地方</view>
+  </view>
+
+  <view class="join-card">
+    <view class="join-info">
+      <text class="join-label">本次参与</text>
+      <view class="join-names">
+        <text class="join-name">{{personList[0].location}}</text>
+        <text class="join-arrow">→</text>
+        <text class="join-name">{{personList[1].location}}</text>
+      </view>
+    </view>
+    <view class="join-modify" bindtap="onModify">修改</view>
+  </view>
+
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">出行方式</text>
+      <text class="section-note">每人只能选一种</text>
+    </view>
+
+    <view class="person-list">
+      <view
+        class="person-item"
+        wx:for="{{personList}}"
+        wx:key="id"
+        wx:for-item="person"
+        wx:for-index="personIndex"
+      >
+        <view class="person-row">
+          <view class="person-badge">{{person.name}}</view>
+          <text class="person-location">{{person.location}}</text>
+        </view>
+
+        <view class="transport-list">
+          <view
+            class="transport-option {{person.transport === option ? 'transport-option-active' : ''}}"
+            wx:for="{{transportOptions}}"
+            wx:key="*this"
+            wx:for-item="option"
+            data-person-index="{{personIndex}}"
+            data-transport="{{option}}"
+            bindtap="onSelectTransport"
+          >{{option}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section-tip">想换出行方式，回到本页重新选</view>
+  </view>
+
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">想去的地方</text>
+      <text class="section-note">可多选</text>
+    </view>
+
+    <view class="category-list">
+      <view class="category" wx:for="{{categoryList}}" wx:key="title">
+        <view class="category-title">{{item.title}}</view>
+
+        <view class="place-list">
+          <view
+            class="place-tag {{selectedMap[place] ? 'place-tag-active' : ''}}"
+            wx:for="{{item.items}}"
+            wx:key="*this"
+            wx:for-item="place"
+            data-place="{{place}}"
+            bindtap="onTogglePlace"
+          >{{place}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 上移到自定义导航栏之上，避免「开始推荐」被遮挡 -->
+  <view class="bottom-bar" style="bottom: 116rpx;">
+    <view class="submit-btn" bindtap="onStartRecommend">开始推荐</view>
+  </view>
+
+  <!-- 底部安全距离 -->
+  <view style="height: 140rpx;"></view>
+
+  <!-- 自定义底部导航（流程页不高亮任何 tab） -->
+  <custom-tabbar current=""></custom-tabbar>
+
+</view>

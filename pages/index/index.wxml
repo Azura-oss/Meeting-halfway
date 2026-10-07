@@ -1,0 +1,143 @@
+<view class="page-container">
+
+  <view class="header">
+    <view class="header-title">大家从哪出发？</view>
+    <view class="header-subtitle">限成都范围内 · 2~6 人</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">出发地</view>
+
+    <view class="departure-list">
+      <view class="departure-item" wx:for="{{departureList}}" wx:key="id">
+        <view class="departure-badge">{{item.label}}</view>
+
+        <view class="departure-field">
+          <input
+            class="departure-input"
+            value="{{item.value}}"
+            placeholder="我在哪出发"
+            placeholder-class="departure-placeholder"
+            data-index="{{index}}"
+            bindinput="onDepartureInput"
+            bindfocus="onDepartureFocus"
+          />
+
+          <view
+            class="field-icon"
+            wx:if="{{item.showClear}}"
+            data-index="{{index}}"
+            catchtap="onClearInput"
+          >✕</view>
+
+          <!-- 第一项「我」无删除按钮；仅剩 2 个出发地时删除按钮置灰不可用 -->
+          <view
+            class="field-icon field-icon-delete {{departureList.length <= 2 ? 'field-icon-delete-disabled' : ''}}"
+            wx:if="{{item.label !== '我'}}"
+            data-index="{{index}}"
+            catchtap="onDeleteDeparture"
+          >−</view>
+        </view>
+      </view>
+    </view>
+
+    <view
+      class="add-btn {{canAdd ? '' : 'add-btn-disabled'}}"
+      bindtap="onAddDeparture"
+    >＋ 添加其他人的出发地</view>
+  </view>
+
+  <view class="voice-area">
+
+    <view class="voice-tip" wx:if="{{voiceStatus === 'idle'}}">按住说话，一句话说清「谁从哪出发、坐什么、想找什么」。比如「我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅」</view>
+
+    <view class="voice-result" wx:if="{{voiceStatus === 'result'}}">
+      <view class="result-header">
+        <text class="result-title">语音转文字</text>
+        <text class="result-hint">可直接修改</text>
+      </view>
+
+      <textarea
+        class="voice-textarea"
+        value="{{voiceText}}"
+        maxlength="200"
+        auto-height
+        placeholder="语音识别结果"
+        placeholder-class="departure-placeholder"
+        bindinput="onVoiceTextInput"
+      />
+
+      <view class="tag-list" wx:if="{{voiceTags.length > 0}}">
+        <view class="tag" wx:for="{{voiceTags}}" wx:key="index">
+          <text class="tag-key">{{item.key}}</text>
+          <text class="tag-value">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view class="state-tip state-tip-full" wx:if="{{voiceComplete}}">信息完整，可以点击下方进入下一步</view>
+      <view class="state-tip state-tip-missing" wx:else>{{voiceMissingTip}}</view>
+    </view>
+
+    <view
+      class="voice-btn {{voiceStatus === 'result' ? 'voice-btn-again' : ''}}"
+      bindtouchstart="onVoiceTouchStart"
+      catchtouchmove="onVoiceTouchMove"
+      bindtouchend="onVoiceTouchEnd"
+      bindtouchcancel="onVoiceTouchCancel"
+    >
+      <view class="mic-icon"></view>
+      <text wx:if="{{voiceStatus === 'idle'}}">按住说话</text>
+      <text wx:elif="{{voiceStatus === 'result' && !voiceComplete}}">按住重说</text>
+      <text wx:else>重新说话</text>
+    </view>
+
+  </view>
+
+  <view class="bottom-bar">
+    <view
+      class="next-btn {{canNext ? 'next-btn-active' : ''}}"
+      bindtap="onNext"
+    >下一步</view>
+  </view>
+
+  <view class="record-overlay" wx:if="{{voiceStatus === 'recording' || voiceStatus === 'recognizing'}}">
+
+    <view class="record-panel {{cancelTip ? 'record-panel-cancel' : 'record-panel-primary'}}" wx:if="{{voiceStatus === 'recording'}}">
+      <view class="wave" wx:if="{{!cancelTip}}">
+        <view class="wave-bar" wx:for="{{waveBars}}" wx:key="*this"></view>
+      </view>
+
+      <view class="record-row">
+        <view class="record-dot" wx:if="{{!cancelTip}}"></view>
+        <text class="record-text">{{cancelTip ? '松开手指，取消发送' : '正在录音'}}</text>
+        <text class="record-time" wx:if="{{!cancelTip}}">{{recordingTime}}</text>
+      </view>
+
+      <view class="record-hint" wx:if="{{!cancelTip}}">手指上滑可取消</view>
+    </view>
+
+    <view class="record-panel record-panel-light" wx:else>
+      <view class="spinner"></view>
+      <text class="record-text record-text-dark">正在识别...</text>
+    </view>
+
+  </view>
+
+  <view class="dialog-mask" wx:if="{{showDialog}}">
+    <view class="dialog">
+      <view class="dialog-title">{{dialogTitle}}</view>
+      <view class="dialog-desc">{{dialogDesc}}</view>
+      <view class="dialog-actions">
+        <view class="dialog-btn dialog-btn-cancel" bindtap="onDialogCancel">取消</view>
+        <view class="dialog-btn dialog-btn-confirm" bindtap="onDialogConfirm">{{dialogConfirmText}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部占位：确保「下一步」与语音区不会被自定义导航栏遮挡 -->
+  <view class="tabbar-space"></view>
+
+  <!-- 自定义底部导航 -->
+  <custom-tabbar current="首页"></custom-tabbar>
+
+</view>

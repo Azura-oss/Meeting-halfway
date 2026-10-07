@@ -1,0 +1,152 @@
+.page-container {
+  min-height: 100vh;
+  padding-bottom: 200rpx;
+  box-sizing: border-box;
+  background-color: var(--color-bg-page);
+}
+
+/* 头图 */
+.cover {
+  width: 100%;
+  height: 400rpx;
+  background-color: #E5E5E5;
+}
+
+.cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 店名区 */
+.head-card {
+  padding: 32rpx;
+  background-color: var(--color-bg-card);
+}
+
+.head-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shop-name {
+  font-size: 38rpx;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.shop-tag {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 4rpx 16rpx;
+  font-size: 22rpx;
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  border-radius: 999rpx;
+}
+
+.shop-type {
+  margin-top: 12rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 信息卡片 */
+.card {
+  margin-top: 24rpx;
+  padding: 32rpx;
+  background-color: var(--color-bg-card);
+}
+
+.card-title {
+  margin-bottom: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  flex-shrink: 0;
+  width: 140rpx;
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+.info-value {
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+.info-btn {
+  flex-shrink: 0;
+  margin-left: 20rpx;
+  padding: 8rpx 24rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-radius: 999rpx;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 20rpx var(--spacing-page) 48rpx;
+  background-color: var(--color-bg-card);
+  box-sizing: border-box;
+}
+
+.bar-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 84rpx;
+  margin-right: 16rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+  border: 2rpx solid var(--color-border);
+  border-radius: calc(var(--radius-card) * 2);
+  box-sizing: border-box;
+}
+
+.bar-btn:last-child {
+  margin-right: 0;
+}
+
+.bar-btn-fav-active {
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-color: var(--color-primary);
+}
+
+.bar-btn-primary {
+  flex: 1.4;
+  color: #FFFFFF;
+  font-weight: 700;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}

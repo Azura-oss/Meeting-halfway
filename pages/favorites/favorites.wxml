@@ -1,0 +1,50 @@
+<view class="page-container">
+
+  <view class="header">
+    <view class="header-title">我的收藏</view>
+    <view class="header-subtitle" wx:if="{{favoriteList.length > 0}}">共 {{favoriteList.length}} 家店铺</view>
+  </view>
+
+  <!-- 纯店铺列表 -->
+  <block wx:if="{{favoriteList.length > 0}}">
+    <view class="shop-list">
+      <view
+        class="shop-item"
+        wx:for="{{favoriteList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        data-name="{{item.name}}"
+        bindtap="onTapItem"
+      >
+        <view class="shop-main">
+          <view class="shop-row">
+            <text class="shop-name">{{item.name}}</text>
+            <text class="shop-type">{{item.type}}</text>
+          </view>
+          <view class="shop-distance">距折中点 {{item.distanceToMidpoint}}m</view>
+        </view>
+
+        <view
+          class="shop-remove"
+          data-id="{{item.id}}"
+          catchtap="onRemoveItem"
+        >删除</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空态 -->
+  <view class="empty" wx:else>
+    <view class="empty-icon">☆</view>
+    <view class="empty-title">还没有收藏的店铺</view>
+    <view class="empty-desc">在推荐结果里点「收藏」，店铺就会出现在这里</view>
+    <view class="empty-btn" bindtap="onGoIndex">去找碰面点</view>
+  </view>
+
+  <!-- 底部安全距离：避免内容与自定义导航重叠 -->
+  <view style="height: 160rpx;"></view>
+
+  <!-- 自定义底部导航 -->
+  <custom-tabbar current="收藏"></custom-tabbar>
+
+</view>

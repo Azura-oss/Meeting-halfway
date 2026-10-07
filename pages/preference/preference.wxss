@@ -1,0 +1,231 @@
+.page-container {
+  min-height: 100vh;
+  padding: var(--spacing-page);
+  padding-bottom: 220rpx;
+  box-sizing: border-box;
+  background-color: var(--color-bg-page);
+}
+
+/* 顶部信息区 */
+.header {
+  padding: 16rpx 0 40rpx;
+}
+
+.header-title {
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.header-subtitle {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 本次参与栏 */
+.join-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-card);
+}
+
+.join-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.join-label {
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+}
+
+.join-names {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.join-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.join-arrow {
+  margin: 0 16rpx;
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+.join-modify {
+  flex-shrink: 0;
+  margin-left: 24rpx;
+  padding: 12rpx 32rpx;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-radius: 999rpx;
+}
+
+/* 通用模块卡片 */
+.section {
+  margin-top: 24rpx;
+  padding: 32rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-card);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 28rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.section-note {
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+}
+
+.section-tip {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 参与人 + 出行方式 */
+.person-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.person-item {
+  padding: 24rpx;
+  background-color: var(--color-bg-page);
+  border-radius: var(--radius-card);
+}
+
+.person-item + .person-item {
+  margin-top: 20rpx;
+}
+
+.person-row {
+  display: flex;
+  align-items: center;
+}
+
+.person-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: 16rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-card);
+  border-radius: 50%;
+}
+
+.person-location {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.transport-list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+}
+
+.transport-option {
+  min-width: 128rpx;
+  margin: 0 16rpx 16rpx 0;
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-sizing: border-box;
+}
+
+.transport-option-active {
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* 场所分类 */
+.category-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.category + .category {
+  margin-top: 32rpx;
+}
+
+.category-title {
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+.place-list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.place-tag {
+  margin: 0 16rpx 16rpx 0;
+  padding: 14rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+  border: 2rpx solid var(--color-border);
+  border-radius: 999rpx;
+}
+
+.place-tag-active {
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-color: var(--color-primary);
+}
+
+/* 底部按钮 */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx var(--spacing-page) 48rpx;
+  background-color: var(--color-bg-page);
+  box-sizing: border-box;
+}
+
+.submit-btn {
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  border-radius: calc(var(--radius-card) * 2);
+}

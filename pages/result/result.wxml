@@ -1,0 +1,133 @@
+<view class="page-container">
+
+  <!-- 计算中 -->
+  <view class="loading-mask" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+    <view class="loading-text">{{loadingText}}</view>
+  </view>
+
+  <block wx:else>
+
+    <!-- 扩到 5km 提示 -->
+    <view class="expand-tip" wx:if="{{distanceExpanded}}">折中点 1km 内没有找到合适的场所，已自动扩大到了 5km</view>
+
+    <!-- 地图在上 -->
+    <view class="map-wrap">
+      <map
+        class="map"
+        latitude="{{mapLat}}"
+        longitude="{{mapLng}}"
+        scale="13"
+        markers="{{markers}}"
+        polyline="{{polylines}}"
+        polylines="{{polylines}}"
+        show-location="{{true}}"
+      ></map>
+
+      <!-- 折中点浮层 -->
+      <view class="midpoint-card">
+        <view class="midpoint-row">
+          <text class="midpoint-label">碰面点</text>
+          <text class="midpoint-name">{{midpoint.name}}</text>
+        </view>
+        <view class="midpoint-address">{{midpoint.address}}</view>
+
+        <view class="arrival-list">
+          <view class="arrival-item" wx:for="{{arrivalList}}" wx:key="id">
+            <text class="arrival-name">{{item.name}}</text>
+            <text class="arrival-time">{{item.minutes}} 分</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 地铁策略（仅全员地铁时展示） -->
+    <view class="strategy-row" wx:if="{{showStrategy}}">
+      <view
+        class="strategy-tab {{strategy === item.key ? 'strategy-tab-active' : ''}}"
+        wx:for="{{strategyList}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="onSwitchStrategy"
+      >{{item.name}}</view>
+    </view>
+
+    <!-- 已选路线提示 + 每人颜色图例 -->
+    <view class="route-tip" wx:if="{{selectedPlaceId}}">
+      <view>已在地图显示每人到「{{selectedPlaceName}}」的路线</view>
+
+      <view style="display: flex; flex-wrap: wrap; margin-top: 12rpx;">
+        <view
+          wx:for="{{routeLegend}}"
+          wx:key="name"
+          style="display: flex; align-items: center; margin: 4rpx 24rpx 4rpx 0;"
+        >
+          <view style="width: 16rpx; height: 16rpx; margin-right: 8rpx; border-radius: 50%; background-color: {{item.color}};"></view>
+          <text style="font-size: 22rpx; color: #333333;">{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 列表在下 -->
+    <block wx:if="{{places.length > 0}}">
+      <view class="list-header">共 {{places.length}} 个候选 · 排序：已置顶 ＞ 已收藏 ＞ 默认</view>
+
+      <view class="place-list">
+        <view
+          class="place-card {{selectedPlaceId === item.id ? 'place-card-active' : ''}}"
+          wx:for="{{places}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onSelectPlace"
+        >
+          <view class="place-head">
+            <text class="place-name">{{item.name}}</text>
+            <text class="place-type">{{item.type}}</text>
+          </view>
+
+          <view class="place-info">
+            <text class="place-info-item">营业 {{item.openTime}}</text>
+            <text class="place-info-item">人均距离 {{item.distanceToMidpoint}}m</text>
+            <text class="place-info-item">距你 {{item.distanceToUser}}m</text>
+          </view>
+
+          <view class="place-actions">
+            <view
+              class="mini-btn {{item.isPinned ? 'mini-btn-active' : ''}}"
+              data-id="{{item.id}}"
+              catchtap="onTogglePin"
+            >{{item.isPinned ? '已置顶' : '置顶'}}</view>
+
+            <view
+              class="mini-btn {{item.isFav ? 'mini-btn-active' : ''}}"
+              data-id="{{item.id}}"
+              catchtap="onToggleFav"
+            >{{item.isFav ? '已收藏' : '收藏'}}</view>
+
+            <text
+              class="detail-link"
+              data-id="{{item.id}}"
+              data-name="{{item.name}}"
+              catchtap="goToDetail"
+              style="margin-left: auto; align-self: center; font-size: 26rpx; color: #07C160;"
+            >查看详情 ＞</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 空态 -->
+    <view class="empty" wx:else>
+      <view class="empty-text">附近 5km 内暂无符合条件的场所，换个组合可能就有结果了</view>
+      <view class="empty-btn" bindtap="onBackModify">返回修改</view>
+    </view>
+
+  </block>
+
+  <!-- 底部安全距离：避免列表 / 空态按钮与自定义导航重叠 -->
+  <view style="height: 160rpx;"></view>
+
+  <!-- 自定义底部导航（结果页为子页面，不显示原生 tabBar） -->
+  <custom-tabbar active="none" isTabPage="{{false}}"></custom-tabbar>
+
+</view>

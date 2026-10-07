@@ -1,0 +1,59 @@
+<view class="page-container">
+
+  <view class="header">
+    <view class="header-row">
+      <view class="header-title">历史记录</view>
+      <view
+        class="header-action"
+        wx:if="{{historyList.length > 0}}"
+        bindtap="onClearHistory"
+      >清空</view>
+    </view>
+    <view class="header-subtitle" wx:if="{{historyList.length > 0}}">共 {{historyList.length}} 条记录</view>
+  </view>
+
+  <!-- 时间倒序列表 -->
+  <block wx:if="{{historyList.length > 0}}">
+    <view class="history-list">
+      <view
+        class="history-item"
+        wx:for="{{historyList}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onTapHistory"
+      >
+        <view class="history-top">
+          <text class="history-route">{{item.departureText}}</text>
+          <text class="history-time">{{item.createdAt}}</text>
+        </view>
+
+        <view class="history-meta">
+          <text class="history-meta-item">{{item.count}} 人</text>
+          <text class="history-meta-item">{{item.transport}}</text>
+          <text class="history-meta-item">{{item.preferenceText}}</text>
+        </view>
+
+        <view class="history-midpoint">碰面点：{{item.midpointName}}</view>
+
+        <view class="history-fav" wx:if="{{item.favoriteCount > 0}}">收藏 {{item.favoriteCount}} 家</view>
+      </view>
+    </view>
+
+    <view class="footer-tip">历史记录保存在云端</view>
+  </block>
+
+  <!-- 空态 -->
+  <view class="empty" wx:else>
+    <view class="empty-icon">↺</view>
+    <view class="empty-title">还没有搜索记录</view>
+    <view class="empty-desc">输入大家的出发地，生成第一个碰面点</view>
+    <view class="empty-btn" bindtap="onGoIndex">去试试</view>
+  </view>
+
+  <!-- 底部安全距离：避免内容与自定义导航重叠 -->
+  <view style="height: 160rpx;"></view>
+
+  <!-- 自定义底部导航 -->
+  <custom-tabbar current="历史"></custom-tabbar>
+
+</view>
