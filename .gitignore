@@ -17,15 +17,9 @@ utils/config.local.js
 # ===== 腾讯位置服务 Key（云函数环境变量配置，严禁提交真实 Key）=====
 cloudfunctions/*/config.json
 
-# ===== 后端本地部署说明（仅本地使用，不上传）=====
-README.md
-
 # ===== 编辑器 / 临时文件 =====
 .idea/
 .vscode/
 *.bak
 *.tmp
 Thumbs.db
-
-# 后端本地部署说明（仅本地）
-README.backend.md
