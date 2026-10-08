@@ -1,0 +1,1221 @@
+
+「哪见」小程序 · 前后端接口约定文档 V1.1
+版本：V1.1　|　状态：待三方确认后定稿　|　替代 V1.0（2026-09-19）
+项目
+内容
+文档版本
+V1.1（依据 V1.0、《哪见接口约定 V1.1 修改建议》与 PRD V2.1 修订）
+修订日期
+2026-10-06
+PRD 依据
+PRD V2.1（A2 参与人数上限、A10 场所类型六大类、A11 结果页排序与置顶收藏规则）
+技术栈
+微信小程序原生 + 微信云开发（云函数）
+调用方式
+wx.cloud.callFunction，数据格式为 JSON
+前端负责人
+田（任务编号 田-4 ~ 田-8）
+后端负责人
+高（任务编号 高-3 ~ 高-6）：POI、推荐、路线、地点详情、收藏、历史
+AI 接口负责人
+梁（任务编号 梁-5 ~ 梁-7）：asrRecognize、parseIntent、埋点与验收
+适用环境
+成都市区（坐标系统一 GCJ-02）
+文档效力
+V1.1 定稿后为唯一联调依据；V1.0 仅作存档，不再引用
+
+本版修订目标
+消除 V1.0 与现有 ASR、意图解析代码之间的契约差异；补齐多人路线、地点详情、收藏与历史恢复所需字段；统一公共字段与错误约定，使前端田、后端高、AI 接口负责人梁可以按同一份契约完成联调与验收。
+V1.1 相对 V1.0 的主要变化
+项目
+V1.0 问题
+V1.1 修改结果
+确认人
+全局返回结构
+声明所有云函数统一使用 code/msg/data，与已验收的 AI 接口冲突
+AI 接口（asrRecognize、parseIntent）保留 ok 契约；业务接口继续使用 code/msg/data；页面统一经 service 层调用
+田、梁、高
+ASR
+返回结构过时，缺少时长、请求 ID 与稳定错误码
+按已验收的 asrRecognize 契约重写，附完整错误码表与重试建议
+田、梁
+意图解析
+函数名与字段均与现有代码不一致
+llmParse 改为 parseIntent，字段改为 partySize/origins/transportModes/placePreferences/missingFields/confidence
+田、梁
+推荐结果
+只有单个用户距离与到达时间
+新增 participantMetrics，返回每位参与人的距离、耗时与出行方式；新增 searchRadiusMeters
+田、高
+路线
+请求中只有一个统一 transport
+删除统一 transport，每人使用自己的 transportMode，返回 routes 数组
+田、高
+地点详情
+接口缺失
+新增 getPlaceDetail
+田、高
+收藏
+写入非幂等，无唯一约束，收藏状态来源不明确
+以 openid + placeId 建立唯一约束、写入幂等；统一由 getRecommendations / getPlaceDetail 返回 isFavorite
+田、高
+历史
+不能完整恢复旧结果，缺少清空历史接口
+saveHistory 增加搜索快照、pinnedIds、favoritedIds；新增 clearHistory；最多保留最近 50 条
+田、高
+公共字段
+距离、时间、出行方式、空值未统一
+见第五章：距离统一米、耗时统一分钟、枚举统一英文并在前端映射、空列表 [] 空对象 null
+田、梁、高
+出发地上限（PRD V2.1）
+上限 5 人，与 PRD A2 不一致
+全局限定参与人数上限 6（含 self）；getRecommendations 的 departures 支持 1~6 人，错误文案改为「最多支持 6 人同行」
+田、高
+人均距离（PRD V2.1）
+只有到折中点的距离，无多人均值口径
+getRecommendations 与 getPlaceDetail 新增 averageDistanceMeters，为所有参与者 distanceMeters 的平均值
+田、高
+详情页到达情况（PRD V2.1）
+详情页缺少各人到达信息
+getPlaceDetail 增加 participantMetrics，详情页展示「距碰面点 / 距你 / 各人到达时间」
+田、高
+结果页排序（PRD V2.1）
+只定义算法原序
+前端展示按「已置顶 &gt; 已收藏 &gt; 默认（算法原序）」重排；置顶仅本次搜索生效，收藏持久化
+田、高
+模糊偏好（PRD V2.1）
+「都行 / 随便」无语义规则
+parseIntent 返回全量场所类型列表（与 PRD A10 六大类一致），missingFields 不含 placePreferences
+田、梁
+
+
+一、文档说明与责任边界
+1.1 责任边界
+负责人
+需要完成的工作
+不得擅自处理的内容
+田（前端）
+更新文档中的前端调用方式、页面所需字段、前端适配层与联调流程；按 V1.1 契约调整 services/utils/api 层
+不得自行改动已经真机验收的 asrRecognize 返回格式；不得代替高承诺后端字段
+高（后端）
+确认并实现 POI、推荐、路线、地点详情、收藏、历史接口；提供云开发环境 ID、已部署云函数清单、数据库集合与权限规则
+不得让前端传 openid；腾讯位置服务 Key、TokenHub Key 等密钥不得进入客户端或接口文档
+梁（AI 接口）
+提供并维护 asrRecognize 与 parseIntent 的既定契约；参与验收
+TokenHub + Hy3 云端配置仍处于暂停状态，不因本次文档修改自动恢复
+
+1.2 云函数总览
+云函数
+模块
+用途
+返回结构
+负责人
+任务编号
+searchPOI
+A 首页
+POI 关键词联想与校验
+code/msg/data
+高
+高-4
+asrRecognize
+A 首页
+语音识别
+ok 契约
+梁
+梁-5
+parseIntent
+A 首页
+意图解析（原 llmParse）
+ok 契约
+梁
+梁-6
+getRecommendations
+B 推荐
+多人折中推荐
+code/msg/data
+高
+高-4、高-5
+getRoutes
+C 路线
+每人路线绘制
+code/msg/data
+高
+高-1
+getPlaceDetail
+C 详情
+地点详情（新增）
+code/msg/data
+高
+高-5
+toggleFavorite
+D 收藏
+收藏状态切换
+code/msg/data
+高
+高-6
+getFavorites
+D 收藏
+收藏列表
+code/msg/data
+高
+高-6
+saveHistory
+E 历史
+保存搜索历史
+code/msg/data
+高
+高-6
+getHistory
+E 历史
+历史列表与结果恢复
+code/msg/data
+高
+高-6
+clearHistory
+E 历史
+清空历史（新增）
+code/msg/data
+高
+高-6
+reportEvent
+F 埋点
+事件上报
+code/msg/data
+梁
+梁-7
+
+二、全局约定
+2.1 两套返回结构（V1.1 重要变更）
+V1.0 要求所有云函数统一返回 code/msg/data，这与已经真机验收的 AI 接口冲突。V1.1 明确区分两类云函数，由前端 service 适配层统一收敛，页面代码不得重复判断不同格式。
+（1）AI 云函数：asrRecognize、parseIntent
+成功以 ok: true 为标志，失败以 ok: false 加稳定错误码返回，并统一携带 requestId 便于排查与日志关联。
+AI 接口返回结构
+// 成功{  "ok": true,  "text": "我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅",  "audioDurationMs": 8200,  "requestId": "req_20261006_8f3c1a"}// 失败{  "ok": false,  "code": "ASR_TIMEOUT",  "message": "语音识别超时",  "retryable": true,  "requestId": null}
+提示：AI 接口不返回 code/msg/data。前端 service 层需把 ok === false 转换为统一的业务异常抛出，页面对两类接口的异常处理方式保持一致。
+（2）业务云函数：searchPOI、getRecommendations、getRoutes、getPlaceDetail、收藏、历史、埋点
+继续使用 code/msg/data 三段式结构，失败时 data 为 null。
+业务接口返回结构
+{  "code": 0,              // 0: 成功；非 0: 失败（见 2.5）  "msg": "success",       // 失败时为可直接展示的提示语  "data": {},             // 业务数据体；失败时为 null  "requestId": "req_..."  // V1.1 新增：请求追踪 ID}
+提示：requestId 为 V1.1 新增字段。前端需要在异常提示的日志中记录该值，方便与后端日志对齐排查。
+2.2 前端适配层要求
+新增 services/ 或 utils/api 层，统一封装 wx.cloud.callFunction 调用与两类返回结构的解析。
+页面只调用 service 方法并接收已归一化的结果或异常，不得在页面中判断 ok 或 code。
+service 层统一处理：网络失败、云函数抛错、ok === false、code !== 0、data 为 null 四类情况。
+service 层统一注入 requestId 记录与毫秒级耗时统计，便于联调期定位问题。
+适配层示意代码
+// utils/api.js —— 适配层示意（田维护）const AI_FUNCTIONS = ['asrRecognize', 'parseIntent']async function call(name, payload) {  try {    const res = await wx.cloud.callFunction({      name, data: payload    })    const body = res.result || {}    if (AI_FUNCTIONS.includes(name)) {      if (body.ok !== true) {        const msg = body.message || '识别失败'        throw Object.assign(new Error(msg), {          code: body.code,          retryable: !!body.retryable,          requestId: body.requestId        })      }      return body    }    if (body.code !== 0) {      const msg = body.msg || '服务繁忙'      throw Object.assign(new Error(msg), {        code: body.code, requestId: body.requestId      })    }    return body.data  } catch (err) {    if (!err.code) err.code = 500    if (!err.message) err.message = '网络开小差了'    throw err  }}module.exports = { call }
+2.3 鉴权约定
+所有涉及个人数据的接口（收藏、历史、埋点）由后端通过 cloud.getWXContext().OPENID 识别用户身份。
+前端不得传递 openid，也不得把 openid 写入本地缓存后回传。
+后端取得 openid 为空时，返回 code 401、msg「登录状态已失效，请重新进入小程序」。
+收藏写入必须以 openid + placeId 建立唯一约束并保证幂等，重复调用不产生重复记录。
+2.4 语音链路
+语音输入在文档中固定为以下四步链路，缺一不可：
+语音输入链路
+asrRecognize → parseIntent → searchPOI → getRecommendations  取文字        取结构化意图    校验出发地      出推荐结果
+parseIntent 只输出地点名称，不输出坐标。前端必须逐个调用 searchPOI 换取合法 poiId 与经纬度后再请求推荐。
+searchPOI 返回重名或多个候选、无法唯一匹配时，前端必须让用户手动选择，不得自行取第一条。
+searchPOI 对某个出发地返回空列表时，前端提示「没有找到该地点，请重新输入」并回到输入态。
+parseIntent 返回 missingFields 非空时，前端按缺项弹窗引导用户补充，不得继续请求推荐。
+2.5 公共字段与错误约定
+项目
+V1.1 统一要求
+坐标
+统一注明 GCJ-02；字段固定使用 lat、lng（数值，保留 6 位小数以内）
+距离
+统一使用米，字段名以 Meters 结尾，如 distanceMeters、distanceToMidpointMeters
+时间
+路线耗时统一使用分钟，字段名以 Minutes 结尾；业务时间使用 ISO 8601，如 2026-10-06T14:30:00+08:00
+出行方式
+统一枚举 walking、driving、subway、bus，前端负责映射为「步行 / 自驾 / 地铁 / 公交」
+出行策略
+strategy 仅在全员 subway 时有效，取 least_transfer 或 least_stops，其余情况传 null 或不传
+参与人标识
+participantId 由前端生成：当前用户固定为 self，其余成员为 p1、p2、p3…；后端在所有响应中原样回传。参与人数上限为 6（含 self），与 PRD A2 一致
+空值
+无列表返回 []，无对象返回 null；不得混用空字符串；可选字段缺失时统一返回 null
+错误
+每个接口列出稳定错误码、用户提示、retryable 与 requestId
+列表上限
+getHistory 最多返回最近 50 条；getFavorites 单页最多返回 100 条。推荐接口 getRecommendations 的 departures 最多支持 6 人
+敏感信息
+openid 由云函数上下文取得；腾讯位置服务 Key、TokenHub Key 等不得传到前端或写入本文档
+
+业务接口通用错误码（所有 code/msg/data 接口适用）
+code
+含义
+用户提示（msg）
+前端处理建议
+0
+成功
+success
+正常渲染 data
+400
+参数缺失或格式错误；或 departures.length &gt; 6
+请求参数有误，请稍后重试 / 最多支持 6 人同行
+记录日志，提示后回到输入态
+401
+登录态失效，openid 为空
+登录状态已失效，请重新进入小程序
+提示后引导重新进入小程序
+403
+无权限访问该资源
+没有访问权限
+提示并返回上一页
+404
+资源不存在（如 placeId 无效）
+该地点已不存在
+移除该条数据并刷新列表
+409
+重复写入（命中唯一约束）
+该地点已在收藏中
+按成功处理，刷新收藏状态即可
+429
+调用频率超限
+操作过于频繁，请稍后再试
+禁用按钮 3 秒后放开
+500
+云函数内部异常
+网络开小差了
+展示重试入口，记录 requestId
+502
+上游服务异常（腾讯位置服务等）
+地图服务暂时不可用
+展示重试入口，记录 requestId
+504
+上游服务超时
+请求超时，请重试
+展示重试入口，记录 requestId
+1001
+POI 关键词无匹配结果
+没有找到该地点，换个说法试试
+展示空态，不报错
+
+AI 接口错误码（asrRecognize、parseIntent 适用）
+错误码
+retryable
+用户提示
+触发条件
+INVALID_INPUT
+false
+请求参数有误
+缺少 fileID/text 或类型错误
+UNSUPPORTED_FORMAT
+false
+暂不支持该音频格式
+format 不在 mp3/wav/m4a/aac 内
+AUDIO_TOO_LARGE
+false
+录音太长了，请分段说
+音频超过 60 秒或 10 MB
+NO_SPEECH
+true
+没有听清，请再说一次
+音频中未检测到有效人声
+ASR_NOT_OPEN
+false
+语音服务暂未开放
+云函数未开通或配置缺失
+ASR_QUOTA_EXHAUSTED
+false
+今日语音额度已用完
+上游配额耗尽
+ASR_TIMEOUT
+true
+语音识别超时，请重试
+识别超过 10 秒
+ASR_FAILED
+true
+语音识别失败，请重试
+上游返回不可归类错误
+INTERNAL_ERROR
+true
+服务开小差了
+云函数内部异常
+
+提示：parseIntent 复用同一套错误码：参数问题用 INVALID_INPUT，模型输出不合法用 INTERNAL_ERROR，超时用 ASR_TIMEOUT 对应的 INTENT_TIMEOUT（V1.1 新增，retryable 为 true）。
+三、模块 A：首页 · 出发信息输入
+对应任务：田-4、高-4、梁-5、梁-6。
+3.1 接口：POI 联想搜索（高-4）
+云函数名：searchPOI
+用途：输入框键入关键词时获取成都市域范围内的地点联想列表，同时承担语音链路中出发地名称到合法 POI 的校验职责。
+前端必须保证用户从联想结果中选定有效 POI 才能作为出发地；未选定时不得进入下一步。
+项目
+说明
+请求参数
+keyword（必填，字符串，1~30 字）
+返回
+code/msg/data，data 为 POI 数组，无结果时为空数组
+
+searchPOI 请求与响应
+// 请求{  "keyword": "武侯",  "city": "成都",       // 可选，默认成都  "limit": 10           // 可选，默认 10，最大 20}// 成功返回{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": [    {      "id": "poi_123",     // POI 唯一 ID      "title": "武侯祠",    // 展示名称      "address": "成都市武侯区武侯祠大街231号",      "lat": 30.642,      "lng": 104.043,      "city": "成都",      "district": "武侯区",      "type": "风景名胜"    // 腾讯位置服务分类    }  ]}// 无结果（不是错误）{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": []}
+字段
+类型
+说明
+id
+string
+POI 唯一 ID。前端用于回填 departs[].poiId 与请求其他接口
+title
+string
+地点展示名称
+address
+string
+完整地址
+lat / lng
+number
+GCJ-02 坐标
+city / district
+string
+city 默认「成都」，district 用于分组展示；出发地限成都市域，超出范围的地点不返回
+type
+string
+POI 分类，用于列表图标与筛选
+
+错误码
+retryable
+用户提示
+触发条件
+1001
+false
+没有找到该地点，换个说法试试
+关键词无匹配结果（data 为 []）
+400
+false
+请求参数有误，请稍后重试
+keyword 缺失或超长
+502
+true
+地图服务暂时不可用
+腾讯位置服务异常
+429
+true
+操作过于频繁，请稍后再试
+输入过快触发限流
+
+提示：前端田操作建议：真实接口就绪前，在 utils/mockData.js 中维护 mockPOI 数组并按关键词过滤，先把联想列表 UI 搭出来；接口就绪后只切换 service 层实现，页面代码不变。
+3.2 接口：语音识别 ASR（梁-5）
+云函数名：asrRecognize（保持原名，梁不为统一外观改动已验收接口）
+用途：前端录音并上传云存储后，调用此接口获取文字与音频时长。
+asrRecognize 请求与响应
+// 请求{  "fileID": "cloud://环境/voice-temp/xxx.mp3",  // 云存储 ID  "format": "mp3"                               // mp3/wav/m4a}// 成功返回{  "ok": true,  "text": "我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅",  "audioDurationMs": 8200,  "requestId": "req_20261006_8f3c1a"}// 失败返回{  "ok": false,  "code": "ASR_TIMEOUT",  "message": "语音识别超时",  "retryable": true,  "requestId": null}
+字段
+类型
+说明
+ok
+boolean
+成功标志。true 时其余成功字段有效
+text
+string
+识别文本，保留口语表达，不做规整。失败时不返回该字段
+audioDurationMs
+number
+音频时长（毫秒），前端用于录音时长上限校验与展示
+code
+string
+失败时的稳定错误码，见 2.5
+message
+string
+用户可直接展示的失败提示
+retryable
+boolean
+是否可自动重试。true 时前端可提示「重试」或自动重试 1 次
+requestId
+string | null
+成功时返回追踪 ID；失败且未进入处理流程时为 null
+
+错误码：INVALID_INPUT、UNSUPPORTED_FORMAT、AUDIO_TOO_LARGE、NO_SPEECH、ASR_NOT_OPEN、ASR_QUOTA_EXHAUSTED、ASR_TIMEOUT、ASR_FAILED、INTERNAL_ERROR（含义与 retryable 见 2.5）。
+提示：前端必须覆盖四个分支：成功、超时重试、无语音（NO_SPEECH）、录音权限被拒绝（小程序侧错误，不进入云函数，需单独处理）。录音前先调用 wx.authorize({ scope: 'scope.record' }) 申请权限。音频格式支持 mp3 / wav / m4a / aac；音频超过 60 秒或 10 MB 返回 AUDIO_TOO_LARGE。录音中需支持上滑取消；松手后进入识别中状态。
+3.3 接口：意图解析 parseIntent（梁-6）
+云函数名：parseIntent（V1.0 中的 llmParse 已废弃，前端不得再出现该名称）
+用途：把 ASR 识别文本解析为结构化字段。前端只把 ASR 成功响应中的 text 交给本接口，不上传录音。
+parseIntent 请求与响应
+// 请求{  "text": "我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅。"}// 成功返回{  "ok": true,  "intent": {    "partySize": 3,    "origins": ["双流机场", "武侯祠"],    "transportModes": ["subway"],    "placePreferences": ["咖啡厅"],    "missingFields": [],    "confidence": 0.95  },  "requestId": "req_20261006_1b7d20"}// 缺项返回（仍为成功，前端引导补全）{  "ok": true,  "intent": {    "partySize": null,    "origins": ["双流机场"],    "transportModes": [],    "placePreferences": [],    "missingFields": ["partySize", "transportModes",                      "placePreferences"],    "confidence": 0.62  },  "requestId": "req_20261006_1b7d21"}// 「都行 / 随便」返回（偏好不缺失，返回全量场所类型）{  "ok": true,  "intent": {    "partySize": 2,    "origins": ["双流机场", "武侯祠"],    "transportModes": ["subway"],    "placePreferences": [      "中餐", "西餐", "快餐", "咖啡厅", "奶茶", "甜品",      "商场", "超市", "酒吧", "KTV", "棋牌游戏", "网吧",      "游乐场", "洗浴推拿", "网球", "篮球", "足球", "溜冰",      "游泳", "乒乓球", "台球", "羽毛球", "滑雪", "跆拳道",      "保龄球", "健身房", "电影院", "音乐厅", "剧场",      "公园广场", "景区", "博物馆", "美术馆", "图书馆"    ],    "missingFields": [],    "confidence": 0.88  },  "requestId": "req_20261006_1b7d22"}
+字段
+类型
+说明
+partySize
+number | null
+参与人数。未识别到为 null。上限 6
+origins
+string[]
+出发地名称数组，只有名称，不含坐标。无法识别时返回 []
+transportModes
+string[]
+出行方式枚举数组，取值 walking/driving/subway/bus
+placePreferences
+string[]
+场所偏好词数组。若用户表达「都行 / 随便」，返回全量场所类型列表；无法识别时返回 []，并在 missingFields 中包含 placePreferences
+missingFields
+string[]
+缺项字段名数组，取值只能为 partySize、origins、transportModes、placePreferences
+confidence
+number
+整体置信度 0~1。低于 0.6 时前端建议让用户确认或重说
+
+missingFields 只能使用 partySize、origins、transportModes、placePreferences 四个字段名，不得自造字段。
+当用户对场所偏好表达「都行」「随便」等模糊语义时，placePreferences 返回全量场所类型列表，missingFields 不包含 placePreferences。
+origins 中可能出现口语别名（如「双流机场」），前端必须经 searchPOI 校验后才可使用。
+missingFields 非空时前端按缺项弹窗引导用户补充，不得直接请求推荐。
+全量场所类型（必须与 PRD A10 六大类一致）
+大类
+包含的场所类型
+吃吃喝喝
+中餐、西餐、快餐、咖啡厅、奶茶、甜品
+逛逛商场
+商场、超市
+High 玩
+酒吧、KTV、棋牌游戏、网吧、游乐场、洗浴推拿
+运动健身
+网球、篮球、足球、溜冰、游泳、乒乓球、台球、羽毛球、滑雪、跆拳道、保龄球、健身房
+文娱活动
+电影院、音乐厅、剧场
+City Walk
+公园广场、景区、博物馆、美术馆、图书馆
+
+提示：「都行 / 随便」在前端的表现：选择偏好页默认全选全部六大类的所有场所类型，用户可再手动增减。
+错误码
+retryable
+用户提示
+触发条件
+INVALID_INPUT
+false
+请求参数有误
+text 缺失、为空或超过 500 字
+INTENT_TIMEOUT
+true
+解析超时，请重试
+模型调用超过 10 秒
+INTERNAL_ERROR
+true
+服务开小差了
+模型输出无法解析为约定结构
+
+四、模块 B：推荐结果页
+对应任务：田-6、高-4、高-5。
+4.1 接口：获取折中推荐结果（高-4、高-5）
+云函数名：getRecommendations
+用途：提交每位参与人的出发地与出行方式、共同偏好，计算折中点及周边候选场所。
+请求参数
+字段
+类型
+说明
+departures
+object[]
+必填，1~6 人。每位参与人的出发信息，元素结构见下
+departures[].participantId
+string
+必填，当前用户为 self，其余为 p1、p2、p3…
+departures[].label
+string
+必填，展示名，如「我」「小明」
+departures[].poiId
+string
+必填，必须来自 searchPOI 返回的 id
+departures[].name
+string
+必填，出发地名称
+departures[].lat / lng
+number
+必填，GCJ-02 坐标，须与 poiId 对应
+departures[].transportMode
+string
+必填，walking / driving / subway / bus
+preferences
+string[]
+必填，场所偏好，如 ["咖啡厅"]；无偏好传 []
+strategy
+string | null
+可选，仅全员 subway 时有效：least_transfer / least_stops；其余传 null
+midpointMode
+string
+可选，默认 auto。auto 由后端按人等时计算；manual 时使用手动指定的折中点
+
+getRecommendations 请求
+// 请求{  "departures": [    {      "participantId": "self", "label": "我",      "poiId": "poi_101", "name": "双流机场",      "lat": 30.57, "lng": 103.94, "transportMode": "subway"    },    {      "participantId": "p1", "label": "小明",      "poiId": "poi_202", "name": "武侯祠",      "lat": 30.64, "lng": 104.04, "transportMode": "subway"    }  ],  "preferences": ["咖啡厅"],  "strategy": "least_transfer",  "midpointMode": "auto"}
+返回数据
+getRecommendations 响应
+{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": {    "midpoint": {      "name": "春熙路地铁站 A 口",      "lat": 30.65,      "lng": 104.08,      "address": "成都市锦江区中纱帽街8号",      "source": "auto"                // auto: 算法折中    },    "searchRadiusMeters": 5000,       // 实际搜索半径    "distanceExpanded": false,        // 是否已扩到 5km    "strategy": "least_transfer",     // 生效策略；否则 null    "places": [      {        "id": "p1",        "name": "示例咖啡厅（春熙路店）",        "type": "咖啡厅",        "lat": 30.651,        "lng": 104.081,        "address": "成都市锦江区春熙路 18 号",        "openHours": "09:00-22:00",        "imageUrl": "cloud://环境/places/p1.jpg",        "distanceToMidpointMeters": 180,        "averageDistanceMeters": 3650,        "isFavorite": false,        "participantMetrics": [          {            "participantId": "self", "label": "我",            "transportMode": "subway",            "distanceMeters": 3200, "durationMinutes": 18          },          {            "participantId": "p1", "label": "小明",            "transportMode": "subway",            "distanceMeters": 4100, "durationMinutes": 22          }        ]      }    ]  }}
+字段
+类型
+说明
+midpoint
+object
+折中点完整对象：name、lat、lng、address、source
+searchRadiusMeters
+number
+本次实际搜索半径，1km 无结果时自动为 5000
+distanceExpanded
+boolean
+是否触发自动扩大。true 时前端展示「已自动扩大到 5km」提示条
+strategy
+string | null
+本次生效的出行策略，未生效为 null
+places
+object[]
+候选场所数组。5km 内仍无结果时为 []，属正常空态而非错误
+places[].id
+string
+场所 ID，供 getRoutes、getPlaceDetail、toggleFavorite 使用
+places[].name / type
+string
+名称与分类，分类用于列表分组
+places[].lat / lng
+number
+GCJ-02 坐标
+places[].address
+string
+完整地址
+places[].openHours
+string | null
+营业时间文本，缺失为 null
+places[].imageUrl
+string | null
+封面图，前端需处理加载失败占位
+places[].distanceToMidpointMeters
+number
+到折中点的直线距离（米）
+places[].averageDistanceMeters
+number
+所有参与者到该场所的 distanceMeters 平均值（米），用于结果页卡片「人均距离」展示
+places[].isFavorite
+boolean
+当前用户是否已收藏。V1.1 统一由本接口返回，前端不再自行合并 getFavorites
+places[].participantMetrics
+object[]
+每位参与人的距离与耗时，见下。前端「距你」取 participantId === 'self' 的 distanceMeters；「人均距离」取 averageDistanceMeters
+participantMetrics[].participantId
+string
+与请求中的 participantId 一一对应
+participantMetrics[].label
+string
+参与人展示名，原样回传
+participantMetrics[].transportMode
+string
+该参与人本段使用的出行方式
+participantMetrics[].distanceMeters
+number
+该参与人到场所的距离（米）
+participantMetrics[].durationMinutes
+number
+该参与人的预计耗时（分钟）
+
+推荐与搜索半径规则
+搜索半径先取 1000 米；该半径内无满足偏好的结果时自动扩大到 5000 米，并返回 distanceExpanded: true 与 searchRadiusMeters: 5000。
+5km 内仍无结果时返回 places: []、distanceExpanded: true，前端展示空态与「换个偏好试试」引导，不得报错。
+places 按「全体参与人耗时最大值」升序排列，最大耗时相同时按 distanceToMidpointMeters 升序。该顺序为算法原序（下称「默认」）。
+前端展示时需按「已置顶 &gt; 已收藏 &gt; 默认（算法原序）」重排，已收藏的置顶优先级低于手动置顶。
+置顶仅对本次搜索生效，不持久化；收藏持久化，跨会话可见。
+strategy 只在全员 subway 时参与计算；存在非地铁出行时后端忽略该字段并在响应中返回 strategy: null。
+错误码
+retryable
+用户提示
+触发条件
+400
+false
+请求参数有误，请稍后重试
+departures 为空、缺 poiId/lat/lng，或 transportMode 非法
+400
+false
+最多支持 6 人同行
+departures.length &gt; 6（前端应提前拦截）
+429
+true
+操作过于频繁，请稍后再试
+短时间内重复请求
+502
+true
+地图服务暂时不可用
+路径规划上游异常，无法计算折中点
+504
+true
+请求超时，请重试
+多人路径规划超时
+500
+true
+网络开小差了
+云函数内部异常
+
+4.2 接口：获取每人路线（高-1）
+云函数名：getRoutes
+用途：在结果页点选某个场所卡片后，获取每位参与人的路线并绘制地图 polyline。
+不跳转独立路线页；只显示当前点选那一家场所的路线，换点别家即切换。
+V1.1 变更：删除请求中的统一 transport 字段，直接使用 departures 中每人的 transportMode。
+getRoutes 请求与响应
+// 请求（不再有统一 transport）{  "placeId": "p1",  "departures": [    {      "participantId": "self", "label": "我",      "poiId": "poi_101", "name": "双流机场",      "lat": 30.57, "lng": 103.94, "transportMode": "subway"    },    {      "participantId": "p1", "label": "小明",      "poiId": "poi_202", "name": "武侯祠",      "lat": 30.64, "lng": 104.04, "transportMode": "bus"    }  ]}// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": {    "placeId": "p1",    "routes": [      {        "participantId": "self",        "label": "我",        "transportMode": "subway",        "distanceMeters": 3200,        "durationMinutes": 18,        "transferCount": 1,      // 仅地铁：换乘次数        "stopCount": 6,          // 仅地铁：途经站点数        "color": "#07C160",      // 前端绘制建议色        "points": [          { "lat": 30.57, "lng": 103.94 },          { "lat": 30.60, "lng": 103.99 }        ]      }    ]  }}
+字段
+类型
+说明
+placeId
+string
+回传请求中的场所 ID
+routes
+object[]
+每人一条，顺序与请求 departures 一致
+routes[].participantId / label
+string
+参与人标识与展示名，原样回传
+routes[].transportMode
+string
+该参与人本次使用的出行方式
+routes[].distanceMeters
+number
+路线总距离（米）
+routes[].durationMinutes
+number
+预计耗时（分钟）
+routes[].transferCount
+number | null
+地铁换乘次数；非地铁为 null
+routes[].stopCount
+number | null
+地铁途经站点数；非地铁为 null
+routes[].color
+string | null
+建议路线颜色（HEX）。为空时前端按顺序取色
+routes[].points
+object[]
+路线坐标点序列，至少 2 个点，元素为 { lat, lng }
+
+polylines 旧字段在 V1.1 中废弃，前端不得再读取，统一改用 routes。
+points 为 GCJ-02 坐标；步行路线点较密，前端绘制前需做抽稀，避免 setData 体积超限。
+单条路线的 points 上限 2000 个点，超出时后端按固定间隔抽稀后返回。
+错误码
+retryable
+用户提示
+触发条件
+404
+false
+该地点已不存在
+placeId 无效或已下架
+400
+false
+请求参数有误，请稍后重试
+departures 缺失或 transportMode 非法
+502
+true
+地图服务暂时不可用
+路径规划上游异常
+504
+true
+请求超时，请重试
+路径规划超时（多人多段）
+
+五、模块 C：地点详情与每人路线入口
+对应任务：高-5、田-6。
+5.1 接口：获取地点详情（新增，高-5）
+云函数名：getPlaceDetail（V1.1 新增接口）
+用途：在推荐列表点击某个场所后，展示图片、营业时间、电话、地址与大众点评入口。
+getPlaceDetail 请求与响应
+// 请求{ "placeId": "p1" }// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": {    "id": "p1",    "name": "示例咖啡厅（春熙路店）",    "type": "咖啡厅",    "lat": 30.651,    "lng": 104.081,    "address": "成都市锦江区春熙路 18 号",    "phone": "028-8888xxxx",        // 可为 null    "openHours": "09:00-22:00",    "imageUrl": "cloud://环境/places/p1.jpg",    "photos": [                     // 相册，最多 6 张      "cloud://环境/places/p1_1.jpg"    ],    "rating": 4.6,                  // 可为 null    "isFavorite": false,    "dianpingUrl": "dianping://shopinfo?id=xxxx",   // 深链    "dianpingFallbackUrl": "https://m.dianping.com/shop/xxxx",    "distanceToMidpointMeters": 180,    "averageDistanceMeters": 3650,    "participantMetrics": [      {        "participantId": "self", "label": "我",        "transportMode": "subway",        "distanceMeters": 3200, "durationMinutes": 18      },      {        "participantId": "p1", "label": "小明",        "transportMode": "subway",        "distanceMeters": 4100, "durationMinutes": 22      }    ]  }}
+字段
+类型
+说明
+id / name / type
+string
+场所 ID、名称、分类
+lat / lng / address
+string
+GCJ-02 坐标与完整地址
+phone
+string | null
+联系电话，缺失返回 null，前端隐藏该行
+openHours
+string | null
+营业时间
+imageUrl
+string | null
+封面图
+photos
+string[]
+相册图片列表，无图返回 []
+rating
+number | null
+评分，无数据返回 null
+isFavorite
+boolean
+当前用户收藏状态
+dianpingUrl
+string | null
+大众点评深链，可为空
+dianpingFallbackUrl
+string | null
+深链不可用时的 H5 兜底地址
+distanceToMidpointMeters
+number
+到折中点的距离（米）
+participantMetrics
+object[]
+每位参与人的距离与耗时，结构同 getRecommendations 中的 participantMetrics，包含 participantId、label、transportMode、distanceMeters、durationMinutes。用于详情页「各人到达时间」展示
+averageDistanceMeters
+number
+所有参与者到该场所的 distanceMeters 平均值（米），用于详情页「人均距离」展示
+
+dianpingUrl 为空或跳转失败（fail 回调）时，前端降级使用 dianpingFallbackUrl。
+两级地址都不可用时，前端提示「暂无法打开点评页面」并返回首页，不得停留在白屏。
+详情页展示：头图、店名、类型、营业时间、到达情况（距碰面点 / 距你 / 各人到达时间）、地址（可复制）、电话（可拨打）。
+「距碰面点」取 distanceToMidpointMeters；「距你」取 participantMetrics 中 participantId === 'self' 的 distanceMeters；「各人到达时间」取 participantMetrics 中每人的 durationMinutes。
+错误码
+retryable
+用户提示
+触发条件
+404
+false
+该地点已不存在
+placeId 无效
+400
+false
+请求参数有误，请稍后重试
+placeId 缺失
+502
+true
+地图服务暂时不可用
+POI 详情上游异常
+
+六、模块 D：收藏与置顶
+对应任务：田-8、高-6。
+6.1 接口：切换收藏状态（高-6）
+云函数名：toggleFavorite
+用途：收藏或取消收藏一个场所。写入必须幂等，并以 openid + placeId 建立唯一约束。
+toggleFavorite 请求与响应
+// 请求{  "placeId": "p1",  "action": "add"        // add | remove}// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": { "placeId": "p1", "isFavorite": true }}
+字段
+类型
+说明
+placeId
+string
+必填，来自 getRecommendations 或 getPlaceDetail
+action
+string
+必填，add 或 remove
+data.placeId
+string
+回传场所 ID
+data.isFavorite
+boolean
+操作后的最终收藏状态，前端以此为准
+
+重复 add 同一 placeId 命中唯一约束时返回 code 0 与 isFavorite: true，不返回错误，前端无需特殊处理。
+重复 remove 同一 placeId 同样返回 code 0 与 isFavorite: false。
+前端以 data.isFavorite 更新本地状态，不得自行取反，避免连点导致状态错乱。
+收藏后该场所在本次搜索结果列表中置顶；置顶优先级低于手动置顶。
+收藏持久化，跨会话可见。
+错误码
+retryable
+用户提示
+触发条件
+400
+false
+请求参数有误，请稍后重试
+placeId 缺失或 action 非法
+401
+false
+登录状态已失效，请重新进入小程序
+openid 为空
+404
+false
+该地点已不存在
+placeId 在库中不存在
+429
+true
+操作过于频繁，请稍后再试
+连点触发限流
+500
+true
+网络开小差了
+数据库写入异常
+
+6.2 接口：获取收藏列表（高-6）
+云函数名：getFavorites
+getFavorites 请求与响应
+// 请求（无需任何参数）{ "page": 1, "pageSize": 50 }// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": {    "total": 2,    "items": [      {        "id": "p1",        "name": "示例咖啡厅（春熙路店）",        "type": "咖啡厅",        "lat": 30.651,        "lng": 104.081,        "address": "成都市锦江区春熙路 18 号",        "imageUrl": "cloud://环境/places/p1.jpg",        "distanceToMidpointMeters": 180,        "pinned": false,        "favoritedAt": "2026-10-06T14:30:00+08:00"      }    ]  }}
+字段
+类型
+说明
+page / pageSize
+number
+可选，默认 1 / 50，pageSize 上限 100
+data.total
+number
+收藏总数
+data.items[].id
+string
+场所 ID
+data.items[].name / type
+string
+名称与分类
+data.items[].lat / lng / address
+string
+坐标与地址，用于从收藏直接进入路线页
+data.items[].imageUrl
+string | null
+封面图
+data.items[].distanceToMidpointMeters
+number | null
+相对最近一次折中点的距离；无最近折中点为 null
+data.items[].pinned
+boolean
+是否置顶。置顶排序规则：pinned 为 true 的记录优先
+data.items[].favoritedAt
+string
+收藏时间，ISO 8601
+
+收藏列表排序：pinned 为 true 优先，其次按 favoritedAt 倒序。
+收藏页以纯店铺列表展示：店名 + 类型 + 距折中点距离，不展示分组与来源信息；空态展示引导文案与「去找碰面点」入口。
+收藏状态来源已在 V1.1 统一：列表页与详情页使用 getRecommendations / getPlaceDetail 返回的 isFavorite，本接口仅用于收藏页与历史恢复，前端不再做双来源合并。
+错误码
+retryable
+用户提示
+触发条件
+401
+false
+登录状态已失效，请重新进入小程序
+openid 为空
+400
+false
+请求参数有误，请稍后重试
+page 或 pageSize 非法
+500
+true
+网络开小差了
+数据库查询异常
+
+七、模块 E：历史记录
+对应任务：田-8、高-6。
+7.1 接口：保存搜索历史（高-6）
+云函数名：saveHistory
+用途：在一次完整搜索出结果后保存，用于历史列表展示与「恢复上次结果」。
+V1.1 变更：增加 partySize、searchedAt、每人出发地与出行方式、midpoint 完整对象、结果快照、pinnedIds、favoritedIds。
+saveHistory 请求与响应
+// 请求{  "partySize": 2,  "departures": [    {      "participantId": "self", "label": "我",      "poiId": "poi_101", "name": "双流机场",      "lat": 30.57, "lng": 103.94, "transportMode": "subway"    },    {      "participantId": "p1", "label": "小明",      "poiId": "poi_202", "name": "武侯祠",      "lat": 30.64, "lng": 104.04, "transportMode": "subway"    }  ],  "preferences": ["咖啡厅"],  "strategy": "least_transfer",  "midpoint": {    "name": "春熙路地铁站 A 口",    "lat": 30.65, "lng": 104.08,    "address": "成都市锦江区中纱帽街8号",    "source": "auto"  },  "searchedAt": "2026-10-06T14:30:00+08:00",  "searchRadiusMeters": 5000,  "distanceExpanded": true,  "resultSnapshot": {          // 快照与可重算参数至少提供一个    "placeIds": ["p1", "p2"],    "places": [ /* 结构同 getRecommendations，最多 20 条 */ ]  },  "pinnedIds": ["p1"],  "favoritedIds": ["p1", "p2"]}// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": { "historyId": "h1" }}
+字段
+类型
+说明
+partySize
+number
+参与人数，与 departures.length 一致
+departures
+object[]
+每人 participantId、label、poiId、name、lat、lng、transportMode
+preferences
+string[]
+本次偏好
+strategy
+string | null
+本次生效策略
+midpoint
+object
+完整折中对象，不只是名称：name、lat、lng、address、source
+searchedAt
+string
+搜索时间，ISO 8601（由前端传入，后端以服务端时间兜底校验）
+searchRadiusMeters
+number
+本次实际搜索半径
+distanceExpanded
+boolean
+本次是否触发自动扩大
+resultSnapshot
+object
+结果快照：placeIds 与 places；仅传可重算参数时本字段可为 null
+pinnedIds
+string[]
+本次结果中被置顶的场所 ID，用于恢复置顶状态
+favoritedIds
+string[]
+本次结果中已收藏的场所 ID，用于恢复收藏标记
+
+historyId 返回后由前端保留，用于后续「恢复上次结果」跳转。
+pinnedIds 仅对本次搜索生效，不持久化；favoritedIds 持久化。
+同一次搜索重复上报时，后端按 openid + searchedAt + departures 去重，避免滚动历史时产生脏数据。
+保存失败不得阻塞结果页渲染，前端静默失败并记录日志即可。
+错误码
+retryable
+用户提示
+触发条件
+400
+false
+请求参数有误，请稍后重试
+departures 缺失或字段不完整
+401
+false
+登录状态已失效，请重新进入小程序
+openid 为空
+500
+true
+网络开小差了
+数据库写入异常
+
+7.2 接口：获取历史记录（高-6）
+云函数名：getHistory
+用途：返回可按原样恢复的搜索记录，最多保留最近 50 条，按 searchedAt 倒序。
+getHistory 请求与响应
+// 请求（无需参数）{ "page": 1, "pageSize": 20 }// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": {    "total": 1,    "items": [      {        "id": "h1",        "partySize": 2,        "departureNames": ["双流机场", "武侯祠"],        "departures": [          {            "participantId": "self", "label": "我",            "poiId": "poi_101", "name": "双流机场",            "lat": 30.57, "lng": 103.94,            "transportMode": "subway"          }        ],        "transportModes": ["subway"],        "preferences": ["咖啡厅"],        "strategy": "least_transfer",        "midpoint": {          "name": "春熙路地铁站 A 口",          "lat": 30.65, "lng": 104.08,          "address": "成都市锦江区中纱帽街8号",          "source": "auto"        },        "searchRadiusMeters": 5000,        "distanceExpanded": true,        "resultSnapshot": {          "placeIds": ["p1"],          "places": []        },        "pinnedIds": ["p1"],        "favoritedIds": ["p1"],        "favoriteCount": 1,        "searchedAt": "2026-10-06T14:30:00+08:00",        "displayTime": "今天 14:30"      }    ]  }}
+字段
+类型
+说明
+data.items[].id
+string
+历史记录 ID
+partySize
+number
+参与人数
+departureNames
+string[]
+出发地名称数组，用于列表一行摘要
+departures
+object[]
+完整出发信息，点击历史项后原样回填首页表单
+transportModes
+string[]
+本次涉及的出行方式枚举
+preferences
+string[]
+本次偏好
+midpoint
+object
+完整折中对象，可直接恢复地图中心点
+searchRadiusMeters / distanceExpanded
+number / boolean
+恢复结果时复用，保证提示条一致
+resultSnapshot
+object
+结果快照，可直接恢复结果页而无需重算
+pinnedIds / favoritedIds
+string[]
+恢复置顶与收藏状态
+favoriteCount
+number
+本次结果中的收藏数量，用于列表摘要
+searchedAt / displayTime
+string
+ISO 8601 原始时间与可直接展示的相对时间文本
+
+恢复逻辑：点击历史项时，若 resultSnapshot.places 非空则直接渲染结果页；为空时用 departures、preferences、strategy 重新调用 getRecommendations。
+恢复后必须用 favoritedIds 标注收藏、用 pinnedIds 恢复置顶，并按「已置顶 &gt; 已收藏 &gt; 默认（算法原序）」重排列表，不得沿用当前的收藏状态。
+历史记录按时间倒序展示，最多保留最近 50 条，超出自动淘汰最旧。
+错误码
+retryable
+用户提示
+触发条件
+401
+false
+登录状态已失效，请重新进入小程序
+openid 为空
+400
+false
+请求参数有误，请稍后重试
+page 或 pageSize 非法
+500
+true
+网络开小差了
+数据库查询异常
+
+7.3 接口：清空历史（新增，高-6）
+云函数名：clearHistory（V1.1 新增接口）
+用途：清空当前用户的历史记录，仅影响历史集合，不得影响收藏数据。
+clearHistory 请求与响应
+// 请求{ "confirm": true }   // 前端二次确认后传 true，避免误触// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": { "deletedCount": 12 }}
+必须在 openid 范围内删除，后端不得接受任何前端传入的用户标识。
+前端需二次确认弹窗；清空成功后回到历史页空态并提示「历史记录已清空」；无历史时调用返回 code 0、deletedCount: 0，提示「暂无可清空的历史」。
+清空操作不可撤销，前端不得提供静默清空入口。
+错误码
+retryable
+用户提示
+触发条件
+400
+false
+请求参数有误，请稍后重试
+confirm 不为 true
+401
+false
+登录状态已失效，请重新进入小程序
+openid 为空
+500
+true
+网络开小差了
+数据库删除异常
+
+八、模块 F：数据埋点
+对应任务：梁-7。
+8.1 接口：事件上报（梁-7）
+云函数名：reportEvent
+reportEvent 请求与响应
+// 请求{  "eventName": "search",       // 见 8.2 事件清单  "page": "pages/result/index",  "properties": {    "partySize": 2,    "transportModes": ["subway"],    "preferences": ["咖啡厅"],    "resultCount": 5,    "distanceExpanded": false,    "durationMs": 1320  }}// 响应{  "code": 0,  "msg": "success",  "requestId": "req_...",  "data": null}
+8.2 事件清单
+eventName
+触发时机
+建议 properties
+app_launch
+小程序启动
+scene、from
+search
+搜索发起（表单提交或语音确认）
+partySize、transportModes、preferences
+result_expose
+结果页曝光
+resultCount、distanceExpanded、durationMs
+voice_use
+语音录制完成并识别成功
+audioDurationMs、confidence
+place_detail
+进入地点详情
+placeId、type
+favorite
+收藏或取消收藏
+placeId、action
+pin
+置顶或取消置顶
+placeId、action
+history_click
+点击历史记录
+historyId、restored
+route_view
+进入路线页
+placeId、transportModes
+
+本清单已覆盖 PRD 要求的搜索发起、结果曝光、收藏、置顶、语音使用、历史点击；额外包含 app_launch、place_detail、route_view。
+埋点上报失败不得影响主流程，前端统一在 utils/report.js 中静默捕获。
+properties 不得包含 openid、手机号、精确家庭住址等个人信息。
+错误码
+retryable
+用户提示
+触发条件
+400
+false
+请求参数有误，请稍后重试
+eventName 不在清单内或 properties 非法
+429
+true
+操作过于频繁，请稍后再试
+短时间内高频上报
+500
+true
+网络开小差了
+写入异常（前端静默忽略）
+
+九、Mock、异常与空态联调策略
+9.1 田（前端）的独立开发策略
+不要等后端。在 utils/mockData.js 中按本文档响应结构写死数据，页面通过 service 层切换数据源。
+Mock 与真实接口切换
+// utils/mockData.js 的引用const mock = require('./mockData.js')const api = require('./api.js')// 开发阶段 USE_MOCK = true 走本地假数据；联调改为 falseconst USE_MOCK = truePage({  async onLoad() {    const payload = {      departures: mock.departures,      preferences: ['咖啡厅'],      strategy: null    }    const data = USE_MOCK      ? mock.getRecommendations.data      : await api.call('getRecommendations', payload)    this.setData({      places: data.places,      distanceExpanded: data.distanceExpanded    })  }})
+9.2 高（后端）的验收策略
+开发 getRecommendations 时必须严格保证返回 JSON 与本文档完全一致，字段名、类型、空值形态都不得偏离。
+折中算法未优化时允许返回占位计算结果，但结构必须正确，以保证「输入 → 出结果」闭环可跑通。
+提供云开发环境 ID、已部署云函数清单、数据库集合与权限规则，供前端切换到真实环境。
+9.3 异常与空态测试参数（三方共同约定）
+测试参数
+后端行为
+前端应表现
+preferences 传 ["美术馆"]（无结果偏好）
+返回 places: []、distanceExpanded: true
+展示空态与「换个偏好试试」，不报错
+departures.length &gt; 6
+返回 code 400、msg「最多支持 6 人同行」
+提示后回到输入态，并保留已填出发地
+departures 含无效 poiId
+返回 code 400
+提示「地点信息已失效，请重新选择」
+任意接口内部 throw new Error('模拟网络抖动')
+返回 code 500、msg「网络开小差了」
+展示重试入口并记录 requestId
+asrRecognize 返回 ok: false、code: ASR_TIMEOUT
+—
+提示超时并提供重试按钮
+parseIntent 返回 missingFields 非空
+—
+弹窗引导补充缺项，不请求推荐
+语音输入「都行 / 随便」
+parseIntent 返回全量 placePreferences，missingFields 不含 placePreferences
+选择偏好页默认全选所有场所类型
+手动已填后用语音
+—
+前端弹互斥确认框：用户选「清空并用语音」后才切换，否则取消
+已用语音后改手动
+—
+前端弹互斥确认框：用户选「清空并手动填」后才切换，否则取消
+结果页点选某场所
+getRoutes 返回 routes
+当前结果页地图绘制每人路线，换点别家即切换
+clearHistory 在无历史时调用
+返回 code 0、deletedCount: 0
+提示「暂无可清空的历史」
+
+十、联调前确认清单
+确认项
+负责人
+状态
+已按新 ASR 返回格式修改调用代码，并覆盖成功、超时、无语音、权限拒绝四个分支
+田
+☐
+已将 llmParse 全部改为 parseIntent，旧字段名不再出现在前端代码中
+田
+☐
+已在 service 层统一适配两套返回结构，页面代码不再判断 ok / code
+田
+☐
+已与高共同确认 getRecommendations、getRoutes、getPlaceDetail、收藏与历史的最终 JSON 示例
+田、高
+☐
+已确认收藏状态统一取自 getRecommendations / getPlaceDetail 的 isFavorite
+田、高
+☐
+已提供云开发环境 ID、已部署云函数清单、数据库集合与权限规则
+高
+☐
+已完成 openid + placeId 唯一约束与收藏写入幂等实现
+高
+☐
+已实现 clearHistory，且只清除历史不影响收藏
+高
+☐
+已确认 asrRecognize 与 parseIntent 契约（含错误码与 retryable）不再变动
+梁
+☐
+所有真实接口都可在 Mock 与云函数之间切换，页面无需改动业务渲染逻辑
+田、高
+☐
+已完成异常与空态测试参数验证，前端容错表现符合预期
+田、高
+☐
+已确认出发地上限为 6，getRecommendations 的 departures 校验与错误文案已同步
+田、高
+☐
+已确认「人均距离」口径为所有参与者 distanceMeters 的平均值，getRecommendations 与 getPlaceDetail 返回 averageDistanceMeters
+田、高
+☐
+已确认 getPlaceDetail 返回 participantMetrics，详情页「各人到达时间」可展示
+田、高
+☐
+已确认置顶仅本次搜索生效、收藏持久化，结果页排序为「已置顶 &gt; 已收藏 &gt; 默认」
+田、高
+☐
+已确认 parseIntent 对「都行 / 随便」返回全量 placePreferences，missingFields 不含 placePreferences
+田、梁
+☐
+已确认历史恢复按 pinnedIds、favoritedIds 重排，不沿用当前收藏状态
+田、高
+☐
+用 PRD 标准语句与全功能测试用例完成一次完整联调后，方可将文档状态标为已定稿
+田、高、梁
+☐
+
+十一、变更记录
+版本
+日期
+修订人
+修订说明
+V1.0
+2026-09-19
+田、高、梁
+首版接口约定
+V1.1
+2026-10-06
+田、高、梁
+统一双返回结构；重写 asrRecognize 与 parseIntent 契约；推荐改为多人 participantMetrics；路线改为每人 transportMode；新增 getPlaceDetail 与 clearHistory；收藏幂等与状态来源统一；历史补齐搜索快照与置顶收藏恢复；统一公共字段与错误码
+V1.1 PRD V2.1 修订
+2026-10-06
+田、高、梁
+出发地上限由 5 改为 6；新增 averageDistanceMeters 口径为所有参与者 distanceMeters 平均值；getPlaceDetail 增加 participantMetrics；结果页排序明确为「已置顶 &gt; 已收藏 &gt; 默认（算法原序）」；parseIntent 对「都行 / 随便」返回全量 placePreferences；明确置顶仅本次搜索生效、收藏持久化
+
+
+定稿说明：本文档经田、高、梁三方确认后将 V1.1 设为唯一联调依据；V1.0 仅保留存档，不再继续引用。文档中所有示例 JSON 均为契约的一部分，字段名与类型不得单方面调整。

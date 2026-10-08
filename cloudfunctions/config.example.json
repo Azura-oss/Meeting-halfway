@@ -1,0 +1,5 @@
+{
+  "envVariables": {
+    "TENCENT_MAP_KEY": "在这里填入你的腾讯位置服务 WebServiceAPI Key"
+  }
+}

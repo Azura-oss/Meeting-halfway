@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+
+# 日志
+*.log
+run.log
+
+# 腾讯位置服务 Key（敏感，不入库；部署时用 config.json 或控制台环境变量）
+cloudfunctions/*/config.json
+
+# 部署说明仅本地使用，不上传（按用户要求）
+README.md
+
+# 系统文件
+.DS_Store
+Thumbs.db
