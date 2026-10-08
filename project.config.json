@@ -4,6 +4,7 @@
   "projectname": "NajianApp",
   "compileType": "miniprogram",
   "libVersion": "3.5.0",
+  "cloudfunctionRoot": "cloudfunctions/",
   "setting": {
     "urlCheck": false,
     "es6": true,
