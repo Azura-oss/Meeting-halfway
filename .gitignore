@@ -26,3 +26,6 @@ README.md
 *.bak
 *.tmp
 Thumbs.db
+
+# 后端本地部署说明（仅本地）
+README.backend.md
