@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "推荐结果",
+  "usingComponents": {
+    "custom-tabbar": "/components/custom-tabbar/custom-tabbar"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "哪见 · 选碰面点",
+  "usingComponents": {
+    "custom-tabbar": "/components/custom-tabbar/custom-tabbar"
+  }
+}

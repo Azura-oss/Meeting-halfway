@@ -1,16 +1,28 @@
-# 依赖
+# ===== 依赖与构建产物 =====
 node_modules/
+miniprogram_npm/
+cloudfunctions/**/node_modules/
 
-# 日志
+# ===== 系统与日志 =====
+.DS_Store
 *.log
-run.log
 
-# 腾讯位置服务 Key（敏感，不入库；部署时用 config.json 或控制台环境变量）
+# ===== 私有配置（含真实云环境 ID / AppKey，严禁提交）=====
+project.private.config.json
+utils/config.local.js
+.env
+.env.*
+!.env.example
+
+# ===== 腾讯位置服务 Key（云函数环境变量配置，严禁提交真实 Key）=====
 cloudfunctions/*/config.json
 
-# 部署说明仅本地使用，不上传（按用户要求）
+# ===== 后端本地部署说明（仅本地使用，不上传）=====
 README.md
 
-# 系统文件
-.DS_Store
+# ===== 编辑器 / 临时文件 =====
+.idea/
+.vscode/
+*.bak
+*.tmp
 Thumbs.db

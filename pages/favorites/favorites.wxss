@@ -1,0 +1,128 @@
+.page-container {
+  min-height: 100vh;
+  padding: var(--spacing-page);
+  box-sizing: border-box;
+  background-color: var(--color-bg-page);
+}
+
+/* 顶部标题 */
+.header {
+  padding: 16rpx 0 32rpx;
+}
+
+.header-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.header-subtitle {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 店铺列表 */
+.shop-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-card);
+}
+
+.shop-item + .shop-item {
+  margin-top: 20rpx;
+}
+
+.shop-main {
+  flex: 1;
+}
+
+.shop-row {
+  display: flex;
+  align-items: center;
+}
+
+.shop-name {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.shop-type {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 4rpx 16rpx;
+  font-size: 22rpx;
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-radius: 999rpx;
+}
+
+.shop-distance {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+.shop-remove {
+  flex-shrink: 0;
+  margin-left: 24rpx;
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-page);
+  border: 2rpx solid var(--color-border);
+  border-radius: 999rpx;
+}
+
+/* 空态 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 200rpx 40rpx 0;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 140rpx;
+  height: 140rpx;
+  font-size: 64rpx;
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+  border-radius: 50%;
+}
+
+.empty-title {
+  margin-top: 32rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.empty-desc {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.empty-btn {
+  margin-top: 48rpx;
+  padding: 20rpx 64rpx;
+  font-size: 28rpx;
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+  border-radius: 999rpx;
+}

@@ -1,0 +1,64 @@
+<view class="page-container">
+
+  <!-- 头图 -->
+  <view class="cover">
+    <view class="cover-placeholder">{{shopInfo.coverText}}</view>
+  </view>
+
+  <!-- 店名 -->
+  <view class="head-card">
+    <view class="head-row">
+      <text class="shop-name">{{shopInfo.name}}</text>
+      <text class="shop-tag" wx:if="{{shopInfo.recommend}}">推荐</text>
+    </view>
+    <view class="shop-type">{{shopInfo.type}}</view>
+  </view>
+
+  <!-- 到达情况 -->
+  <view class="card">
+    <view class="card-title">到达情况</view>
+
+    <view class="info-row">
+      <text class="info-label">距碰面点</text>
+      <text class="info-value">{{shopInfo.distance}} 米</text>
+    </view>
+
+    <view class="info-row">
+      <text class="info-label">距你</text>
+      <text class="info-value">{{shopInfo.distanceToMe}} 米</text>
+    </view>
+
+    <view class="info-row">
+      <text class="info-label">人均到达</text>
+      <text class="info-value">{{shopInfo.arrivalTime}}（{{shopInfo.arrivalText}}）</text>
+    </view>
+  </view>
+
+  <!-- 地址、营业时间、电话 -->
+  <view class="card">
+    <view class="info-row">
+      <text class="info-label">地址</text>
+      <text class="info-value">{{shopInfo.address}}</text>
+      <view class="info-btn" bindtap="onCopyAddress">复制</view>
+    </view>
+
+    <view class="info-row">
+      <text class="info-label">营业时间</text>
+      <text class="info-value">{{shopInfo.openTime}}</text>
+    </view>
+
+    <view class="info-row">
+      <text class="info-label">电话</text>
+      <text class="info-value">{{shopInfo.phone}}</text>
+      <view class="info-btn" bindtap="onCallPhone">拨打</view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <view class="bar-btn {{isFav ? 'bar-btn-fav-active' : ''}}" bindtap="onToggleFav">{{isFav ? '已收藏' : '收藏'}}</view>
+    <view class="bar-btn" bindtap="onNavigate">导航到这里</view>
+    <view class="bar-btn bar-btn-primary" bindtap="onGoDianping">去大众点评</view>
+  </view>
+
+</view>

@@ -1,0 +1,11 @@
+page {
+  --color-primary: #07C160;
+  --color-text-primary: #333333;
+  --color-text-secondary: #999999;
+  --color-bg-page: #F5F5F5;
+  --color-bg-card: #FFFFFF;
+  --color-border: #E5E5E5;
+  --radius-card: 16rpx;
+  --spacing-page: 32rpx;
+  background-color: var(--color-bg-page);
+}

@@ -1,0 +1,489 @@
+.page-container {
+  min-height: 100vh;
+  padding: var(--spacing-page);
+  /* 底部预留：自定义导航栏高度(100rpx) + 安全区 + 呼吸间距，保证内容可完整滚动到底 */
+  padding-bottom: 240rpx;
+  padding-bottom: calc(240rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(240rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background-color: var(--color-bg-page);
+}
+
+/* 底部占位：确保最后一块内容不会被自定义导航栏遮挡 */
+.tabbar-space {
+  height: 40rpx;
+}
+
+/* 标题区 */
+.header {
+  padding: 16rpx 0 40rpx;
+}
+
+.header-title {
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.header-subtitle {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 卡片区 */
+.section {
+  padding: 32rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-card);
+}
+
+.section-title {
+  margin-bottom: 24rpx;
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+}
+
+/* 出发地列表 */
+.departure-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.departure-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.departure-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 60rpx;
+  height: 60rpx;
+  margin-right: 20rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-page);
+  border-radius: 50%;
+}
+
+.departure-field {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 88rpx;
+  padding: 0 24rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-sizing: border-box;
+}
+
+.departure-input {
+  flex: 1;
+  height: 100%;
+  font-size: 30rpx;
+  color: var(--color-text-primary);
+}
+
+.departure-placeholder {
+  font-size: 30rpx;
+  color: var(--color-text-secondary);
+}
+
+.field-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  margin-left: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-text-secondary);
+}
+
+.field-icon-delete {
+  font-size: 36rpx;
+  color: var(--color-primary);
+}
+
+/* 已到人数下限（2 人）时，删除按钮置灰不可用 */
+.field-icon-delete-disabled {
+  color: var(--color-text-secondary);
+  opacity: 0.35;
+}
+
+/* 添加按钮 */
+.add-btn {
+  margin-top: 12rpx;
+  height: 88rpx;
+  line-height: 84rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-primary);
+  background-color: var(--color-bg-card);
+  border: 2rpx dashed var(--color-primary);
+  border-radius: var(--radius-card);
+  box-sizing: border-box;
+}
+
+.add-btn-disabled {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  opacity: 0.6;
+}
+
+/* 语音区 */
+.voice-area {
+  margin-top: 32rpx;
+}
+
+.voice-tip {
+  padding: 24rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  background-color: #FFF9E6;
+  border-radius: var(--radius-card);
+}
+
+/* 语音识别结果 */
+.voice-result {
+  padding: 32rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-card);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.result-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.result-hint {
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+}
+
+.voice-textarea {
+  width: 100%;
+  min-height: 140rpx;
+  padding: 24rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-page);
+  border-radius: var(--radius-card);
+  box-sizing: border-box;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 24rpx;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  margin: 0 16rpx 16rpx 0;
+  padding: 10rpx 20rpx;
+  background-color: rgba(7, 193, 96, 0.1);
+  border-radius: 999rpx;
+}
+
+.tag-key {
+  margin-right: 10rpx;
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+}
+
+.tag-value {
+  font-size: 26rpx;
+  color: var(--color-primary);
+}
+
+.state-tip {
+  margin-top: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  border-radius: var(--radius-card);
+}
+
+.state-tip-full {
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.1);
+}
+
+.state-tip-missing {
+  color: #D48806;
+  background-color: #FFF9E6;
+}
+
+/* 按住说话按钮 */
+.voice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24rpx;
+  height: 96rpx;
+  font-size: 30rpx;
+  color: var(--color-primary);
+  background-color: var(--color-bg-card);
+  border: 2rpx solid var(--color-primary);
+  border-radius: calc(var(--radius-card) * 2);
+}
+
+.voice-btn-again {
+  color: #FFFFFF;
+  background-color: var(--color-primary);
+}
+
+.mic-icon {
+  position: relative;
+  width: 20rpx;
+  height: 30rpx;
+  margin-right: 14rpx;
+  background-color: currentColor;
+  border-radius: 12rpx;
+}
+
+.mic-icon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10rpx;
+  width: 2rpx;
+  height: 10rpx;
+  background-color: currentColor;
+  transform: translateX(-50%);
+}
+
+/* 录音 / 识别浮层 */
+.record-overlay {
+  position: fixed;
+  left: var(--spacing-page);
+  right: var(--spacing-page);
+  /* 抬到自定义导航栏（100rpx）之上，避免「正在录音 / 正在识别」被遮挡 */
+  bottom: 140rpx;
+  bottom: calc(140rpx + constant(safe-area-inset-bottom));
+  bottom: calc(140rpx + env(safe-area-inset-bottom));
+  /* 高于导航栏（z-index: 200），保证浮层完整可见 */
+  z-index: 300;
+  pointer-events: none;
+}
+
+.record-panel {
+  padding: 40rpx 32rpx;
+  text-align: center;
+  border-radius: calc(var(--radius-card) * 1.5);
+}
+
+.record-panel-primary {
+  background-color: var(--color-primary);
+}
+
+.record-panel-cancel {
+  background-color: #FA5151;
+}
+
+.record-panel-light {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--color-bg-card);
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-dot {
+  width: 16rpx;
+  height: 16rpx;
+  margin-right: 12rpx;
+  background-color: #FFFFFF;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+.record-text {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.record-text-dark {
+  margin-top: 20rpx;
+  color: var(--color-text-primary);
+}
+
+.record-time {
+  margin-left: 16rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.record-hint {
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* 波形动画 */
+.wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60rpx;
+  margin-bottom: 24rpx;
+}
+
+.wave-bar {
+  width: 8rpx;
+  height: 48rpx;
+  margin: 0 6rpx;
+  background-color: #FFFFFF;
+  border-radius: 4rpx;
+  animation: wave 1s infinite ease-in-out;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.wave-bar:nth-child(3) { animation-delay: 0.3s; }
+.wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.wave-bar:nth-child(5) { animation-delay: 0.6s; }
+.wave-bar:nth-child(6) { animation-delay: 0.45s; }
+.wave-bar:nth-child(7) { animation-delay: 0.3s; }
+
+@keyframes wave {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* 识别中 loading */
+.spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 6rpx solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 底部主按钮 */
+.bottom-bar {
+  margin-top: 48rpx;
+}
+
+.next-btn {
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #FFFFFF;
+  background-color: var(--color-border);
+  border-radius: calc(var(--radius-card) * 2);
+}
+
+.next-btn-active {
+  background-color: var(--color-primary);
+}
+
+/* 互斥弹窗 */
+.dialog-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /* 高于自定义导航栏（z-index: 200），弹窗不会被遮挡 */
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.dialog {
+  width: 560rpx;
+  padding: 48rpx 40rpx 32rpx;
+  text-align: center;
+  background-color: var(--color-bg-card);
+  border-radius: calc(var(--radius-card) * 1.5);
+  box-sizing: border-box;
+}
+
+.dialog-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.dialog-desc {
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.dialog-actions {
+  display: flex;
+  margin-top: 48rpx;
+}
+
+.dialog-btn {
+  flex: 1;
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  font-size: 30rpx;
+  border-radius: var(--radius-card);
+}
+
+.dialog-btn-cancel {
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-page);
+  margin-right: 20rpx;
+}
+
+.dialog-btn-confirm {
+  color: var(--color-primary);
+  background-color: rgba(7, 193, 96, 0.12);
+}
