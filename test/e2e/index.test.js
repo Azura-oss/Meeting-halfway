@@ -137,7 +137,7 @@ module.exports = {
       }
     },
     {
-      name: '拒绝录音权限并取消设置后仍可手动选地点进入偏好页',
+      name: '拒绝录音权限并取消设置后仍可手动输入、切换交通、选择偏好并推荐',
       async run() {
         setAuthorizeAllowed(false);
         setModalConfirm(false);
@@ -155,6 +155,23 @@ module.exports = {
         assert.strictEqual(page.data.canNext, true);
         page.onNext();
         assert.deepStrictEqual(calls.navigateTo, ['/pages/preference/preference']);
+        const preference = loadPage('pages/preference/preference.js');
+        preference.onLoad();
+        preference.onSelectTransport(event({ personIndex: 0, transport: 'bus' }));
+        assert.strictEqual(preference.data.personList[0].transportMode, 'bus');
+        preference.onTogglePlace(event({ place: '咖啡厅' }));
+        preference.onStartRecommend();
+        assert.strictEqual(preference.data.submitting, false);
+        assert.strictEqual(calls.navigateTo[calls.navigateTo.length - 1], '/pages/result/result');
+        assert.strictEqual(app.globalData.pendingSearchContext.strategy, null);
+        const result = loadPage('pages/result/result.js');
+        result.onLoad();
+        await waitFor(() => !result.data.loading, '拒绝录音权限后的推荐未结束');
+        assert.strictEqual(result.data.errorMessage, '');
+        assert(result.data.places.length > 0);
+        assert.strictEqual(result.data.departures[0].transportMode, 'bus');
+        assert.deepStrictEqual(result.data.preferences, ['咖啡厅']);
+        result.onUnload();
         page.onUnload();
       }
     },
