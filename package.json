@@ -1,0 +1,33 @@
+{
+  "name": "meeting-halfway",
+  "version": "1.0.0",
+  "description": "- 仓库地址：`git@github.com:<你的用户名>/哪见.git`（推送后请替换为真实地址） - 当前接口版本：**PRD V2.1 / 接口约定 V1.1**（两者冲突时以 PRD 为准）",
+  "main": "app.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "npm run test:all",
+    "test:mock": "node test/frontend_mock.js",
+    "test:pages": "node test/e2e/run.js",
+    "test:smoke": "node test/smoke.js",
+    "test:all": "npm run test:mock && npm run test:pages && npm run test:smoke"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Azura-oss/Meeting-halfway.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Azura-oss/Meeting-halfway/issues"
+  },
+  "homepage": "https://github.com/Azura-oss/Meeting-halfway#readme",
+  "devDependencies": {
+    "@weapp-vite/miniprogram-automator": "^1.2.23",
+    "miniprogram-automator": "^0.12.1"
+  }
+}

@@ -48,7 +48,8 @@ module.exports = {
   // 本地缓存 key（与页面现有缓存保持一致，保证数据互通）
   storageKeys: {
     favorites: 'myFavorites',
-    history: 'myHistory'
+    history: 'myHistory',
+    mockScenario: '__najianMockScenario'
   },
 
   // 业务常量（PRD A2 人数上限 6 / 第 8 章历史 50 条 / B5 搜索半径）

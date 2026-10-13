@@ -1,77 +1,47 @@
-// 本地缓存 key（模拟数据库）
-const FAVORITES_KEY = 'myFavorites';
+const api = require('../../utils/api');
 
 Page({
-  data: {
-    favoriteList: []
-  },
+  data: { favoriteList: [], total: 0, loading: false, errorMessage: '', removingId: '' },
+  onShow() { this.destroyed = false; this.loadFavorites(); },
+  onUnload() { this.destroyed = true; },
 
-  // 每次显示都从本地缓存读取，保证刚收藏的店铺能立刻出现
-  onShow() {
-    this.setData({
-      favoriteList: this.readFavorites()
-    });
-  },
-
-  readFavorites() {
+  async loadFavorites() {
+    this.setData({ loading: true, errorMessage: '' });
     try {
-      const list = wx.getStorageSync(FAVORITES_KEY);
-      return Array.isArray(list) ? list : [];
+      const data = await api.getFavorites({ page: 1, pageSize: 50 });
+      if (!this.destroyed) this.setData({ loading: false, favoriteList: data.items || [], total: data.total || 0 });
     } catch (err) {
-      return [];
+      if (!this.destroyed) this.setData({ loading: false, errorMessage: err.message || '收藏加载失败' });
     }
   },
 
-  // 点击店铺进入详情页
   onTapItem(e) {
-    const dataset = e.currentTarget.dataset;
-
-    if (!dataset.id) {
-      return;
-    }
-
-    wx.navigateTo({
-      url: '/pages/shop-detail/shop-detail?id=' + dataset.id
-        + '&name=' + encodeURIComponent(dataset.name || ''),
-      fail: () => {
-        wx.showToast({
-          title: '详情页跳转失败',
-          icon: 'none'
-        });
-      }
-    });
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    // 收藏页没有本次搜索上下文，显式清空，避免复用上一次结果页遗留的 detailContext。
+    getApp().globalData.detailContext = { placeId: id, departures: [], midpoint: null };
+    wx.navigateTo({ url: '/pages/shop-detail/shop-detail?id=' + encodeURIComponent(id) });
   },
 
-  // 取消收藏：同步更新本地缓存
   onRemoveItem(e) {
     const id = e.currentTarget.dataset.id;
-
+    if (!id || this.data.removingId) return;
     wx.showModal({
       title: '确认取消收藏？',
       content: '取消后该店铺会从收藏列表移除',
-      success: res => {
-        if (!res.confirm) {
-          return;
+      success: async res => {
+        if (!res.confirm) return;
+        this.setData({ removingId: id });
+        try {
+          await api.toggleFavorite({ placeId: id, action: 'remove' });
+          if (!this.destroyed) await this.loadFavorites();
+        } catch (err) {
+          wx.showToast({ title: err.message, icon: 'none' });
+        } finally {
+          if (!this.destroyed) this.setData({ removingId: '' });
         }
-
-        const favoriteList = this.readFavorites().filter(item => item.id !== id);
-
-        wx.setStorageSync(FAVORITES_KEY, favoriteList);
-
-        this.setData({ favoriteList });
-
-        wx.showToast({
-          title: '已取消收藏',
-          icon: 'none'
-        });
       }
     });
   },
-
-  // 空态引导：回到首页
-  onGoIndex() {
-    wx.switchTab({
-      url: '/pages/index/index'
-    });
-  }
+  onGoIndex() { wx.switchTab({ url: '/pages/index/index' }); }
 });

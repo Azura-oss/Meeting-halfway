@@ -2,14 +2,17 @@
 
   <view class="header">
     <view class="header-title">我的收藏</view>
-    <view class="header-subtitle" wx:if="{{favoriteList.length > 0}}">共 {{favoriteList.length}} 家店铺</view>
+    <view class="header-subtitle" wx:if="{{favoriteList.length > 0}}">共 {{total}} 家店铺</view>
   </view>
 
+  <view class="empty e2e-favorites-loading" wx:if="{{loading}}"><view class="empty-title">收藏加载中...</view></view>
+  <view class="empty e2e-favorites-error" wx:elif="{{errorMessage}}"><view class="empty-title">{{errorMessage}}</view><view class="empty-btn e2e-favorites-retry" bindtap="loadFavorites">重试</view></view>
+
   <!-- 纯店铺列表 -->
-  <block wx:if="{{favoriteList.length > 0}}">
+  <block wx:elif="{{favoriteList.length > 0}}">
     <view class="shop-list">
       <view
-        class="shop-item"
+        class="shop-item e2e-favorite-item"
         wx:for="{{favoriteList}}"
         wx:key="id"
         data-id="{{item.id}}"
@@ -21,14 +24,14 @@
             <text class="shop-name">{{item.name}}</text>
             <text class="shop-type">{{item.type}}</text>
           </view>
-          <view class="shop-distance">距折中点 {{item.distanceToMidpoint}}m</view>
+          <view class="shop-distance" wx:if="{{item.distanceToMidpointMeters !== null}}">距折中点 {{item.distanceToMidpointMeters}}m</view>
         </view>
 
         <view
-          class="shop-remove"
+          class="shop-remove e2e-remove-favorite"
           data-id="{{item.id}}"
           catchtap="onRemoveItem"
-        >删除</view>
+        >{{removingId === item.id ? '处理中' : '删除'}}</view>
       </view>
     </view>
   </block>
@@ -36,7 +39,7 @@
   <!-- 空态 -->
   <view class="empty" wx:else>
     <view class="empty-icon">☆</view>
-    <view class="empty-title">还没有收藏的店铺</view>
+    <view class="empty-title e2e-favorites-empty">还没有收藏的店铺</view>
     <view class="empty-desc">在推荐结果里点「收藏」，店铺就会出现在这里</view>
     <view class="empty-btn" bindtap="onGoIndex">去找碰面点</view>
   </view>

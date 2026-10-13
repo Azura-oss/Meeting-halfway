@@ -1,94 +1,80 @@
-// 本地缓存 key（模拟数据库）
-const HISTORY_KEY = 'myHistory';
+const api = require('../../utils/api');
+const TRANSPORT_LABELS = { walking: '步行', driving: '开车', subway: '地铁', bus: '公交' };
 
 Page({
-  data: {
-    historyList: []
-  },
+  data: { historyList: [], total: 0, loading: false, errorMessage: '', clearing: false },
+  onShow() { this.destroyed = false; this.loadHistory(); },
+  onUnload() { this.destroyed = true; },
 
-  // 每次显示都从本地缓存读取，保证刚搜索的记录能立刻出现
-  onShow() {
-    this.setData({
-      historyList: this.readHistory().map(item => this.decorate(item))
-    });
-  },
-
-  readHistory() {
+  async loadHistory() {
+    this.setData({ loading: true, errorMessage: '' });
     try {
-      const list = wx.getStorageSync(HISTORY_KEY);
-      return Array.isArray(list) ? list : [];
+      const data = await api.getHistory({ page: 1, pageSize: 20 });
+      if (this.destroyed) return;
+      this.setData({ loading: false, total: data.total || 0, historyList: (data.items || []).map(item => this.decorate(item)) });
     } catch (err) {
-      return [];
+      if (!this.destroyed) this.setData({ loading: false, errorMessage: err.message || '历史记录加载失败' });
     }
   },
 
-  // 列表展示所需的文案，统一由数据拼装（WXML 中不写死）
   decorate(item) {
-    const preferences = item.preferences || [];
-
     return Object.assign({}, item, {
       departureText: (item.departureNames || []).join(' → '),
-      preferenceText: preferences.length > 0 ? preferences.join('、') : '不限',
-      favoriteCount: item.favoriteCount || (item.favoritedIds || []).length
+      preferenceText: (item.preferences || []).length ? item.preferences.join('、') : '不限',
+      transportText: (item.transportModes || []).map(value => TRANSPORT_LABELS[value] || value).join('、'),
+      midpointName: item.midpoint && item.midpoint.name ? item.midpoint.name : '待重新计算'
     });
   },
 
-  // 点击历史记录：回到当时的结果页，并带上置顶 / 收藏状态
   onTapHistory(e) {
-    const id = e.currentTarget.dataset.id;
-    const record = this.data.historyList.filter(item => item.id === id)[0];
-
-    if (!record) {
+    const record = this.data.historyList.find(item => item.id === e.currentTarget.dataset.id);
+    if (!record) return;
+    if (!Array.isArray(record.departures) || !record.departures.length) {
+      wx.showModal({ title: '数据已变化', content: '这条记录缺少有效地点，请重新搜索', showCancel: false });
       return;
     }
-
-    const pinnedIds = encodeURIComponent(JSON.stringify(record.pinnedIds || []));
-    const favoritedIds = encodeURIComponent(JSON.stringify(record.favoritedIds || []));
-
-    wx.navigateTo({
-      url: '/pages/result/result?from=history'
-        + '&pinnedIds=' + pinnedIds
-        + '&favoritedIds=' + favoritedIds,
-      fail: () => {
-        wx.showToast({
-          title: '结果页跳转失败',
-          icon: 'none'
-        });
-      }
-    });
+    getApp().globalData.pendingSearchContext = {
+      departures: record.departures,
+      preferences: record.preferences || [],
+      strategy: record.strategy || null,
+      midpointMode: 'auto',
+      fromHistory: true,
+      searchedAt: record.searchedAt,
+      midpoint: record.midpoint,
+      searchRadiusMeters: record.searchRadiusMeters,
+      distanceExpanded: record.distanceExpanded,
+      resultSnapshot: record.resultSnapshot,
+      pinnedIds: record.pinnedIds || [],
+      favoritedIds: record.favoritedIds || []
+    };
+    wx.navigateTo({ url: '/pages/result/result' });
   },
 
-  // 清空全部历史记录（二次确认 + 清除本地缓存）
   onClearHistory() {
-    if (this.data.historyList.length === 0) {
+    if (this.data.clearing) return;
+    if (!this.data.historyList.length) {
+      wx.showToast({ title: '暂无可清空的历史', icon: 'none' });
       return;
     }
-
     wx.showModal({
       title: '确认清空全部历史记录？',
-      content: '清空后无法恢复，确定要清空吗？',
+      content: '清空后无法恢复，收藏不会受到影响',
       confirmText: '清空',
-      success: res => {
-        if (!res.confirm) {
-          return;
+      success: async res => {
+        if (!res.confirm) return;
+        this.setData({ clearing: true });
+        try {
+          const result = await api.clearHistory({ confirm: true });
+          if (this.destroyed) return;
+          this.setData({ historyList: [], total: 0 });
+          wx.showToast({ title: result.deletedCount ? '历史记录已清空' : '暂无可清空的历史', icon: 'none' });
+        } catch (err) {
+          wx.showToast({ title: err.message, icon: 'none' });
+        } finally {
+          if (!this.destroyed) this.setData({ clearing: false });
         }
-
-        wx.removeStorageSync(HISTORY_KEY);
-
-        this.setData({ historyList: [] });
-
-        wx.showToast({
-          title: '已清空',
-          icon: 'none'
-        });
       }
     });
   },
-
-  // 空态引导：回到首页
-  onGoIndex() {
-    wx.switchTab({
-      url: '/pages/index/index'
-    });
-  }
+  onGoIndex() { wx.switchTab({ url: '/pages/index/index' }); }
 });

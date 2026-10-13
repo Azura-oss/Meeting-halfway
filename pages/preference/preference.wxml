@@ -9,12 +9,12 @@
     <view class="join-info">
       <text class="join-label">本次参与</text>
       <view class="join-names">
-        <text class="join-name">{{personList[0].location}}</text>
+        <text class="join-name">{{personList[0].name}}</text>
         <text class="join-arrow">→</text>
-        <text class="join-name">{{personList[1].location}}</text>
+        <text class="join-name">{{personList[1].name}}</text>
       </view>
     </view>
-    <view class="join-modify" bindtap="onModify">修改</view>
+    <view class="join-modify e2e-modify-departures" bindtap="onModify">修改</view>
   </view>
 
   <view class="section">
@@ -25,27 +25,28 @@
 
     <view class="person-list">
       <view
-        class="person-item"
+        class="person-item e2e-person-item"
         wx:for="{{personList}}"
-        wx:key="id"
+        wx:key="participantId"
         wx:for-item="person"
         wx:for-index="personIndex"
       >
         <view class="person-row">
-          <view class="person-badge">{{person.name}}</view>
-          <text class="person-location">{{person.location}}</text>
+          <view class="person-badge">{{person.label}}</view>
+          <text class="person-location">{{person.name}}</text>
         </view>
 
         <view class="transport-list">
           <view
-            class="transport-option {{person.transport === option ? 'transport-option-active' : ''}}"
+            class="transport-option e2e-transport-option {{person.transportMode === option.value ? 'transport-option-active' : ''}}"
             wx:for="{{transportOptions}}"
-            wx:key="*this"
+            wx:key="value"
             wx:for-item="option"
             data-person-index="{{personIndex}}"
-            data-transport="{{option}}"
+            data-participant-id="{{person.participantId}}"
+            data-transport="{{option.value}}"
             bindtap="onSelectTransport"
-          >{{option}}</view>
+          >{{option.label}}</view>
         </view>
       </view>
     </view>
@@ -65,7 +66,7 @@
 
         <view class="place-list">
           <view
-            class="place-tag {{selectedMap[place] ? 'place-tag-active' : ''}}"
+            class="place-tag e2e-place-preference {{selectedMap[place] ? 'place-tag-active' : ''}}"
             wx:for="{{item.items}}"
             wx:key="*this"
             wx:for-item="place"
@@ -79,7 +80,7 @@
 
   <!-- 上移到自定义导航栏之上，避免「开始推荐」被遮挡 -->
   <view class="bottom-bar" style="bottom: 116rpx;">
-    <view class="submit-btn" bindtap="onStartRecommend">开始推荐</view>
+    <view class="submit-btn e2e-start-recommend" bindtap="onStartRecommend">{{submitting ? '正在进入...' : '开始推荐'}}</view>
   </view>
 
   <!-- 底部安全距离 -->

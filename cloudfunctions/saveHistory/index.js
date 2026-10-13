@@ -1,6 +1,7 @@
 // 云函数：saveHistory（高-6）
 // 契约：《哪见接口约定 V1.1》7.1
-// 1) openid 由云函数上下文取得；2) 同一搜索重复上报按 openid+searchedAt+departures 去重；
+// 1) openid 由云函数上下文取得；2) 同一搜索重复上报按「openid + 出发地/交通方式 + 偏好 + 策略 + 折中点模式」去重
+//    （与前端 Mock 层同口径，不把 searchedAt 计入签名）；
 // 3) 最多保留最近 50 条，超出淘汰最旧；4) searchedAt 前端传入，非法时服务端兜底。
 
 const cloud = require('wx-server-sdk');
@@ -50,14 +51,25 @@ exports.main = async (event) => {
     const pinnedIds = Array.isArray(event.pinnedIds) ? event.pinnedIds : [];
     const favoritedIds = Array.isArray(event.favoritedIds) ? event.favoritedIds : [];
 
-    // 去重：openid + searchedAt + departures
-    const sig = JSON.stringify(departures.map((d) => [d.participantId, d.poiId]));
-    const dup = await db.collection('history')
-      .where({ openid, searchedAt }).limit(MAX_HISTORY).get();
-    const dupDoc = (dup.data || []).find((h) => {
-      const hSig = JSON.stringify((h.departures || []).map((d) => [d.participantId, d.poiId]));
-      return hSig === sig;
+    // 去重：与前端 Mock 层保持同一口径（出发地+交通方式 / 偏好 / 策略 / 折中点模式），
+    // 不把 searchedAt 计入签名——否则同一组合搜索每次重进结果页都会新增一条历史。
+    const signatureOf = (departuresList, preferencesList, strategyValue, midpointModeValue) => JSON.stringify({
+      departures: (departuresList || []).map((d) => ({
+        participantId: d.participantId, poiId: d.poiId, transportMode: d.transportMode
+      })),
+      preferences: (preferencesList || []).slice().sort(),
+      strategy: strategyValue || null,
+      midpointMode: midpointModeValue || 'auto'
     });
+    const sig = signatureOf(departures, preferences, event.strategy, event.midpointMode);
+    const recent = await db.collection('history')
+      .where({ openid })
+      .orderBy('searchedAt', 'desc')
+      .limit(MAX_HISTORY)
+      .get();
+    const dupDoc = (recent.data || []).find((h) => signatureOf(
+      h.departures, h.preferences, h.strategy, h.midpointMode
+    ) === sig);
     if (dupDoc) {
       return ok({ historyId: dupDoc._id }, requestId);
     }
@@ -71,6 +83,7 @@ exports.main = async (event) => {
         transportModes,
         preferences,
         strategy: event.strategy || null,
+        midpointMode: event.midpointMode || 'auto',
         midpoint: event.midpoint || null,
         searchedAt,
         searchRadiusMeters: typeof event.searchRadiusMeters === 'number'

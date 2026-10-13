@@ -1,15 +1,24 @@
 <view class="page-container">
 
+  <view class="card e2e-detail-loading" wx:if="{{loading}}">详情加载中...</view>
+  <view class="card e2e-detail-error" wx:elif="{{errorMessage}}">
+    <view>{{errorMessage}}</view>
+    <view class="info-btn e2e-detail-retry" bindtap="loadDetail">重试</view>
+  </view>
+
+  <block wx:else>
+
   <!-- 头图 -->
   <view class="cover">
-    <view class="cover-placeholder">{{shopInfo.coverText}}</view>
+    <image wx:if="{{shopInfo.imageUrl}}" src="{{shopInfo.imageUrl}}" mode="aspectFill" style="width:100%;height:100%;" />
+    <view class="cover-placeholder" wx:else>暂无图片</view>
   </view>
 
   <!-- 店名 -->
   <view class="head-card">
     <view class="head-row">
-      <text class="shop-name">{{shopInfo.name}}</text>
-      <text class="shop-tag" wx:if="{{shopInfo.recommend}}">推荐</text>
+      <text class="shop-name e2e-detail-name">{{shopInfo.name}}</text>
+      <text class="shop-tag" wx:if="{{shopInfo.rating !== null}}">{{shopInfo.rating}} 分</text>
     </view>
     <view class="shop-type">{{shopInfo.type}}</view>
   </view>
@@ -18,47 +27,54 @@
   <view class="card">
     <view class="card-title">到达情况</view>
 
-    <view class="info-row">
+    <view class="info-row" wx:if="{{shopInfo.distanceToMidpointMeters !== null}}">
       <text class="info-label">距碰面点</text>
-      <text class="info-value">{{shopInfo.distance}} 米</text>
+      <text class="info-value">{{shopInfo.distanceToMidpointMeters}} 米</text>
     </view>
 
-    <view class="info-row">
+    <view class="info-row" wx:if="{{selfDistanceMeters !== null}}">
       <text class="info-label">距你</text>
-      <text class="info-value">{{shopInfo.distanceToMe}} 米</text>
+      <text class="info-value">{{selfDistanceMeters}} 米</text>
     </view>
 
-    <view class="info-row">
-      <text class="info-label">人均到达</text>
-      <text class="info-value">{{shopInfo.arrivalTime}}（{{shopInfo.arrivalText}}）</text>
+    <view class="info-row" wx:if="{{shopInfo.averageDistanceMeters !== null}}">
+      <text class="info-label">人均距离</text>
+      <text class="info-value">{{shopInfo.averageDistanceMeters}} 米</text>
+    </view>
+
+    <view class="info-row" wx:for="{{shopInfo.participantMetrics}}" wx:key="participantId">
+      <text class="info-label">{{item.label}}</text>
+      <text class="info-value">{{item.durationMinutes}} 分钟 · {{item.distanceMeters}} 米</text>
     </view>
   </view>
 
   <!-- 地址、营业时间、电话 -->
   <view class="card">
-    <view class="info-row">
+    <view class="info-row" wx:if="{{shopInfo.address}}">
       <text class="info-label">地址</text>
       <text class="info-value">{{shopInfo.address}}</text>
-      <view class="info-btn" bindtap="onCopyAddress">复制</view>
+      <view class="info-btn e2e-copy-address" bindtap="onCopyAddress">复制</view>
     </view>
 
-    <view class="info-row">
+    <view class="info-row" wx:if="{{shopInfo.openHours}}">
       <text class="info-label">营业时间</text>
-      <text class="info-value">{{shopInfo.openTime}}</text>
+      <text class="info-value">{{shopInfo.openHours}}</text>
     </view>
 
-    <view class="info-row">
+    <view class="info-row" wx:if="{{shopInfo.phone}}">
       <text class="info-label">电话</text>
       <text class="info-value">{{shopInfo.phone}}</text>
-      <view class="info-btn" bindtap="onCallPhone">拨打</view>
+      <view class="info-btn e2e-call-phone" bindtap="onCallPhone">拨打</view>
     </view>
   </view>
 
   <!-- 底部操作栏 -->
   <view class="bottom-bar">
-    <view class="bar-btn {{isFav ? 'bar-btn-fav-active' : ''}}" bindtap="onToggleFav">{{isFav ? '已收藏' : '收藏'}}</view>
-    <view class="bar-btn" bindtap="onNavigate">导航到这里</view>
-    <view class="bar-btn bar-btn-primary" bindtap="onGoDianping">去大众点评</view>
+    <view class="bar-btn e2e-detail-favorite {{shopInfo.isFavorite ? 'bar-btn-fav-active' : ''}}" bindtap="onToggleFav">{{favoriteBusy ? '处理中' : (shopInfo.isFavorite ? '已收藏' : '收藏')}}</view>
+    <view class="bar-btn e2e-navigate" bindtap="onNavigate">导航到这里</view>
+    <view class="bar-btn bar-btn-primary e2e-dianping" bindtap="onGoDianping">去大众点评</view>
   </view>
+
+  </block>
 
 </view>

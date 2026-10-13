@@ -9,12 +9,12 @@
     <view class="section-title">出发地</view>
 
     <view class="departure-list">
-      <view class="departure-item" wx:for="{{departureList}}" wx:key="id">
+      <view class="departure-item e2e-departure-item" wx:for="{{departureList}}" wx:key="participantId">
         <view class="departure-badge">{{item.label}}</view>
 
         <view class="departure-field">
           <input
-            class="departure-input"
+            class="departure-input e2e-origin-input"
             value="{{item.value}}"
             placeholder="我在哪出发"
             placeholder-class="departure-placeholder"
@@ -24,41 +24,60 @@
           />
 
           <view
-            class="field-icon"
-            wx:if="{{item.showClear}}"
+            class="field-icon e2e-origin-clear"
+            wx:if="{{item.value}}"
             data-index="{{index}}"
             catchtap="onClearInput"
           >✕</view>
 
           <!-- 第一项「我」无删除按钮；仅剩 2 个出发地时删除按钮置灰不可用 -->
           <view
-            class="field-icon field-icon-delete {{departureList.length <= 2 ? 'field-icon-delete-disabled' : ''}}"
+            class="field-icon field-icon-delete e2e-delete-participant {{departureList.length <= 2 ? 'field-icon-delete-disabled' : ''}}"
             wx:if="{{item.label !== '我'}}"
             data-index="{{index}}"
             catchtap="onDeleteDeparture"
           >−</view>
+
+          <view class="poi-state e2e-poi-loading" wx:if="{{item.searching}}">正在搜索...</view>
+          <view class="poi-state poi-state-error e2e-poi-message" wx:if="{{item.searchMessage}}">{{item.searchMessage}}</view>
+          <view class="poi-suggestions e2e-poi-suggestions" wx:if="{{item.suggestions.length}}">
+            <view
+              class="poi-suggestion e2e-poi-option"
+              wx:for="{{item.suggestions}}"
+              wx:for-item="poi"
+              wx:for-index="poiIndex"
+              wx:key="id"
+              data-index="{{index}}"
+              data-poi-index="{{poiIndex}}"
+              catchtap="onSelectPOI"
+            >
+              <view class="poi-title">{{poi.title}}</view>
+              <view class="poi-address">{{poi.address}}</view>
+            </view>
+          </view>
         </view>
       </view>
     </view>
 
     <view
-      class="add-btn {{canAdd ? '' : 'add-btn-disabled'}}"
+      class="add-btn e2e-add-participant {{canAdd ? '' : 'add-btn-disabled'}}"
       bindtap="onAddDeparture"
     >＋ 添加其他人的出发地</view>
   </view>
 
   <view class="voice-area">
 
-    <view class="voice-tip" wx:if="{{voiceStatus === 'idle'}}">按住说话，一句话说清「谁从哪出发、坐什么、想找什么」。比如「我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅」</view>
+    <!-- 按住期间保留原布局，避免按钮移动导致模拟器丢失松手目标。 -->
+    <view class="voice-tip" wx:if="{{voiceStatus === 'idle' || (voiceStatus === 'recording' && !hasVoiceData)}}">按住说话，一句话说清「谁从哪出发、坐什么、想找什么」。比如「我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅」</view>
 
-    <view class="voice-result" wx:if="{{voiceStatus === 'result'}}">
+    <view class="voice-result" wx:if="{{voiceStatus === 'result' || (voiceStatus === 'recording' && hasVoiceData)}}">
       <view class="result-header">
         <text class="result-title">语音转文字</text>
         <text class="result-hint">可直接修改</text>
       </view>
 
       <textarea
-        class="voice-textarea"
+        class="voice-textarea e2e-voice-text"
         value="{{voiceText}}"
         maxlength="200"
         auto-height
@@ -74,28 +93,27 @@
         </view>
       </view>
 
-      <view class="state-tip state-tip-full" wx:if="{{voiceComplete}}">信息完整，可以点击下方进入下一步</view>
+      <view class="state-tip state-tip-full" wx:if="{{voiceComplete && canNext}}">信息完整，可以点击下方进入下一步</view>
       <view class="state-tip state-tip-missing" wx:else>{{voiceMissingTip}}</view>
     </view>
 
     <view
-      class="voice-btn {{voiceStatus === 'result' ? 'voice-btn-again' : ''}}"
+      class="voice-btn e2e-voice-button {{voiceStatus === 'result' ? 'voice-btn-again' : ''}}"
       bindtouchstart="onVoiceTouchStart"
       catchtouchmove="onVoiceTouchMove"
       bindtouchend="onVoiceTouchEnd"
       bindtouchcancel="onVoiceTouchCancel"
     >
       <view class="mic-icon"></view>
-      <text wx:if="{{voiceStatus === 'idle'}}">按住说话</text>
-      <text wx:elif="{{voiceStatus === 'result' && !voiceComplete}}">按住重说</text>
-      <text wx:else>重新说话</text>
+      <!-- 更新文本而不替换按压中的节点。 -->
+      <text>{{voiceStatus === 'idle' ? '按住说话' : (voiceStatus === 'result' ? (voiceComplete ? '重新说话' : '按住重说') : '重新说话')}}</text>
     </view>
 
   </view>
 
   <view class="bottom-bar">
     <view
-      class="next-btn {{canNext ? 'next-btn-active' : ''}}"
+      class="next-btn e2e-next {{canNext ? 'next-btn-active' : ''}}"
       bindtap="onNext"
     >下一步</view>
   </view>
@@ -128,8 +146,8 @@
       <view class="dialog-title">{{dialogTitle}}</view>
       <view class="dialog-desc">{{dialogDesc}}</view>
       <view class="dialog-actions">
-        <view class="dialog-btn dialog-btn-cancel" bindtap="onDialogCancel">取消</view>
-        <view class="dialog-btn dialog-btn-confirm" bindtap="onDialogConfirm">{{dialogConfirmText}}</view>
+        <view class="dialog-btn dialog-btn-cancel e2e-dialog-cancel" bindtap="onDialogCancel">取消</view>
+        <view class="dialog-btn dialog-btn-confirm e2e-dialog-confirm" bindtap="onDialogConfirm">{{dialogConfirmText}}</view>
       </view>
     </view>
   </view>
