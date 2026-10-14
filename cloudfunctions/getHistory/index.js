@@ -60,6 +60,7 @@ exports.main = async (event) => {
       transportModes: h.transportModes || [],
       preferences: h.preferences || [],
       strategy: h.strategy || null,
+      midpointMode: h.midpointMode || 'auto',
       midpoint: h.midpoint || null,
       searchRadiusMeters: typeof h.searchRadiusMeters === 'number' ? h.searchRadiusMeters : 1000,
       distanceExpanded: !!h.distanceExpanded,

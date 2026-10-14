@@ -16,13 +16,5 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents",
-  "permission": {           
-  "scope.userLocation": {
-    "desc": "你的位置信息将用于计算碰面点和绘制路线"
-  }
-},
-"requiredPrivateInfos": [          
-  "getLocation"
-]
+  "lazyCodeLoading": "requiredComponents"
 }

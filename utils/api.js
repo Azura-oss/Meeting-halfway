@@ -8,6 +8,14 @@ try { localConfig = require('./config.local') || {}; } catch (err) { localConfig
 const cloudEnv = localConfig.cloudEnv || config.cloudEnv;
 let mockEnabled = !!config.useMock;
 let cloudInited = false;
+const selectiveRealEnabled = typeof wx !== 'undefined' && typeof wx.getAccountInfoSync === 'function';
+const realFunctionNames = new Set(selectiveRealEnabled && Array.isArray(localConfig.realFunctions)
+  ? localConfig.realFunctions.filter(name => typeof name === 'string' && name)
+  : []);
+
+function shouldUseMock(name) {
+  return mockEnabled && !realFunctionNames.has(name);
+}
 
 function createError(options) {
   const source = options || {};
@@ -90,7 +98,7 @@ async function request(key, params, handler) {
   try {
     let data;
     let requestId = null;
-    if (mockEnabled) {
+    if (shouldUseMock(name)) {
       await delay(config.mockDelay);
       data = handler(params || {});
     } else {
@@ -117,15 +125,33 @@ function uploadVoice(tempFilePath) {
   }).then(res => ({ fileID: res.fileID, format: suffix }));
 }
 
+async function cleanupUploadedVoice(fileID) {
+  if (typeof fileID !== 'string' || !fileID.startsWith('cloud://') || !fileID.includes('/voice-temp/')) return;
+  if (!wx.cloud || typeof wx.cloud.deleteFile !== 'function') return;
+  try {
+    await wx.cloud.deleteFile({ fileList: [fileID] });
+  } catch (err) {
+    console.warn('[api][voice_cleanup_failed]', {
+      code: err && err.code ? String(err.code) : 'UNKNOWN'
+    });
+  }
+}
+
 function searchPOI(params) {
   return request('searchPOI', typeof params === 'string' ? { keyword: params } : (params || {}), mock.searchPOI);
 }
 
 async function asrRecognize(params) {
   const payload = params || {};
-  if (mockEnabled || payload.fileID) return request('asrRecognize', payload, mock.asrRecognize);
+  const name = config.cloudFunctions.asrRecognize || 'asrRecognize';
+  if (shouldUseMock(name) || payload.fileID) return request('asrRecognize', payload, mock.asrRecognize);
   if (!payload.tempFilePath) throw createError({ message: '录音文件不存在', code: 'INVALID_INPUT', functionName: 'asrRecognize' });
-  return request('asrRecognize', await uploadVoice(payload.tempFilePath), mock.asrRecognize);
+  const uploaded = await uploadVoice(payload.tempFilePath);
+  try {
+    return await request('asrRecognize', uploaded, mock.asrRecognize);
+  } finally {
+    await cleanupUploadedVoice(uploaded.fileID);
+  }
 }
 
 const parseIntent = params => request('parseIntent', params || {}, mock.parseIntent);
@@ -143,7 +169,7 @@ function reportEvent(eventName, properties, page) {
 }
 
 function callFunction(name, data) {
-  if (mockEnabled) return Promise.reject(createError({ message: 'Mock 模式禁止直接调用云函数', code: 400, functionName: name }));
+  if (shouldUseMock(name)) return Promise.reject(createError({ message: 'Mock 模式禁止直接调用云函数', code: 400, functionName: name }));
   return request(name, data || {}, () => null);
 }
 

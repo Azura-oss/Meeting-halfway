@@ -209,6 +209,7 @@ module.exports = {
           pendingAuthorize.success();
           assert.strictEqual(page.data.voiceStatus, 'recording');
           assert.strictEqual(recorder.startCalls.length, 1);
+          assert.strictEqual(recorder.startCalls[0].duration, 45000);
           page.onVoiceTouchEnd();
           assert.strictEqual(page.data.voiceStatus, 'recognizing');
           assert.strictEqual(recorder.stopCalls, 1);

@@ -11,6 +11,8 @@ const db = cloud.database();
 
 const TRANSPORT_MODES = ['walking', 'driving', 'subway', 'bus'];
 const MAX_HISTORY = 50;
+const MAX_SNAPSHOT_PLACES = 20;
+const MAX_SNAPSHOT_BYTES = 512 * 1024;
 
 function genRequestId() {
   const d = new Date();
@@ -21,7 +23,7 @@ const ok = (data, requestId) => ({ code: 0, msg: 'success', requestId, data });
 const fail = (code, msg, requestId) => ({ code, msg, data: null, requestId });
 
 function validateDepartures(departures) {
-  if (!Array.isArray(departures) || departures.length === 0 || departures.length > 6) return false;
+  if (!Array.isArray(departures) || departures.length < 2 || departures.length > 6) return false;
   for (const d of departures) {
     if (!d || !d.participantId || !d.poiId || typeof d.lat !== 'number'
       || typeof d.lng !== 'number' || TRANSPORT_MODES.indexOf(d.transportMode) < 0) {
@@ -29,6 +31,26 @@ function validateDepartures(departures) {
     }
   }
   return true;
+}
+
+function normalizeSearchedAt(value) {
+  return typeof value === 'string' && value && Number.isFinite(Date.parse(value))
+    ? value : new Date().toISOString();
+}
+
+function validateResultSnapshot(snapshot) {
+  if (snapshot === null || typeof snapshot === 'undefined') return true;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return false;
+  if (!Array.isArray(snapshot.placeIds) || !Array.isArray(snapshot.places)) return false;
+  if (snapshot.placeIds.length > MAX_SNAPSHOT_PLACES || snapshot.places.length > MAX_SNAPSHOT_PLACES) return false;
+  if (!snapshot.placeIds.every((id) => typeof id === 'string' && id.length > 0)) return false;
+  if (!snapshot.places.every((place) => place && typeof place === 'object'
+    && typeof place.id === 'string' && place.id.length > 0)) return false;
+  try {
+    return Buffer.byteLength(JSON.stringify(snapshot), 'utf8') <= MAX_SNAPSHOT_BYTES;
+  } catch (e) {
+    return false;
+  }
 }
 
 exports.main = async (event) => {
@@ -41,10 +63,12 @@ exports.main = async (event) => {
     if (!validateDepartures(event.departures)) {
       return fail(400, '请求参数有误，请稍后重试', requestId);
     }
+    if (!validateResultSnapshot(event.resultSnapshot)) {
+      return fail(400, '结果快照过大或格式有误', requestId);
+    }
 
     const departures = event.departures;
-    const searchedAt = (typeof event.searchedAt === 'string' && event.searchedAt)
-      || new Date().toISOString();
+    const searchedAt = normalizeSearchedAt(event.searchedAt);
     const departureNames = departures.map((d) => d.name || d.participantId);
     const transportModes = Array.from(new Set(departures.map((d) => d.transportMode)));
     const preferences = Array.isArray(event.preferences) ? event.preferences : [];

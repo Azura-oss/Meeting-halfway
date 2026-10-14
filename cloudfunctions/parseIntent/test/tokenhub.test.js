@@ -9,7 +9,7 @@ const {
   validateEndpoint
 } = require('../lib/tokenhub');
 
-test('builds a strict Hy3 structured-output request', () => {
+test('builds a Hy3 JSON-mode request with the contract in the prompt', () => {
   const body = buildRequestBody({
     systemPrompt: '只返回 JSON',
     userText: '我们三个人坐地铁去咖啡厅',
@@ -19,10 +19,12 @@ test('builds a strict Hy3 structured-output request', () => {
 
   assert.equal(body.model, 'hy3');
   assert.equal(body.stream, false);
+  assert.deepEqual(body.thinking, { type: 'disabled' });
   assert.equal(body.temperature, 0);
-  assert.equal(body.response_format.type, 'json_schema');
-  assert.equal(body.response_format.json_schema.strict, true);
-  assert.equal(body.response_format.json_schema.schema.additionalProperties, false);
+  assert.equal(body.max_tokens, 1200);
+  assert.deepEqual(body.response_format, { type: 'json_object' });
+  assert.equal(body.messages[0].content.includes('partySize'), true);
+  assert.equal(body.messages[0].content.includes('additionalProperties'), true);
   assert.equal(body.messages[1].content, '我们三个人坐地铁去咖啡厅');
 });
 

@@ -4,6 +4,7 @@ const origLoad = Module._load;
 
 const store = { places: [], favorites: [], history: [] };
 let idSeq = 1;
+let failPlaceWrites = false;
 
 function match(d, q) {
   return Object.keys(q).every((k) => {
@@ -52,6 +53,7 @@ const wxStub = {
         return {
           where(q) { return makeChain(arr, (d) => match(d, q)); },
           async add({ data }) {
+            if (name === 'places' && failPlaceWrites) throw new Error('simulated places write failure');
             data._id = 'id_' + (idSeq++);
             arr.push(data);
             return { _id: data._id };
@@ -59,6 +61,7 @@ const wxStub = {
           doc(id) {
             return {
               async update({ data: patch }) {
+                if (name === 'places' && failPlaceWrites) throw new Error('simulated places write failure');
                 const d = arr.find((x) => x._id === id);
                 if (d) Object.assign(d, patch);
               },
@@ -116,6 +119,9 @@ function assert(cond, label) {
   assert(r1.data.strategy === null, '非全员 subway 时 strategy 为 null');
   assert(store.places.length >= 1, 'places 快照入库');
 
+  const rSingle = await rec.main({ departures: [SELF], preferences: ['咖啡厅'] });
+  assert(rSingle.code === 400, 'getRecommendations 拒绝少于 2 人');
+
   const seven = [];
   for (let i = 0; i < 7; i++) seven.push(Object.assign({}, SELF, { participantId: 'p' + i }));
   const r7 = await rec.main({ departures: seven, preferences: ['咖啡厅'] });
@@ -128,12 +134,22 @@ function assert(cond, label) {
     assert(rArt.code === 0 && rArt.data.places.length === 0 && rArt.data.distanceExpanded === true, '美术馆偏好返回空态（种子模式）');
   }
 
+  failPlaceWrites = true;
+  const rCacheFailure = await rec.main({
+    departures: [Object.assign({}, SELF, { participantId: 'cache-self' }), P1],
+    preferences: ['咖啡厅']
+  });
+  failPlaceWrites = false;
+  assert(rCacheFailure.code === 500, 'places 快照入库失败时推荐不返回假成功');
+
   const getRoutes = require('../cloudfunctions/getRoutes/index.js');
   const g1 = await getRoutes.main({ placeId: place.id, departures: [SELF, P1] });
   assert(g1.code === 0 && g1.data.routes.length === 2, 'getRoutes 两人各一条');
   assert(g1.data.routes[0].points.length >= 2 && g1.data.routes[0].color, 'points 与 color 存在');
   const g2 = await getRoutes.main({ placeId: 'not_exist', departures: [SELF] });
-  assert(g2.code === 404, '无效 placeId 404');
+  assert(g2.code === 400, 'getRoutes 拒绝少于 2 人');
+  const g3 = await getRoutes.main({ placeId: 'not_exist', departures: [SELF, P1] });
+  assert(g3.code === 404, '无效 placeId 404');
 
   const toggleFavorite = require('../cloudfunctions/toggleFavorite/index.js');
   const t1 = await toggleFavorite.main({ placeId: place.id, action: 'add' });
@@ -154,6 +170,8 @@ function assert(cond, label) {
   assert(f1.code === 0 && f1.data.total === 1 && f1.data.items[0].id === place.id, 'getFavorites 1 条');
 
   const saveHistory = require('../cloudfunctions/saveHistory/index.js');
+  const hSingle = await saveHistory.main({ departures: [SELF] });
+  assert(hSingle.code === 400, 'saveHistory 拒绝少于 2 人');
   const h1 = await saveHistory.main({
     partySize: 2, departures: [SELF, P1], preferences: ['咖啡厅'], strategy: null,
     midpoint: r1.data.midpoint, searchedAt: '2026-10-09T14:30:00+08:00',
@@ -168,17 +186,30 @@ function assert(cond, label) {
   });
   assert(h2.data.historyId === h1.data.historyId, '重复上报去重返回同一 historyId');
   assert(store.history.length === 1, 'history 仅 1 条');
+  const hInvalidSnapshot = await saveHistory.main({
+    departures: [SELF, P1], preferences: ['快餐'], searchedAt: 'not-a-date',
+    resultSnapshot: { placeIds: [], places: new Array(21).fill({ id: 'p' }) }
+  });
+  assert(hInvalidSnapshot.code === 400, 'saveHistory 拒绝超过 20 条的结果快照');
+  const hInvalidDate = await saveHistory.main({
+    departures: [SELF, P1], preferences: ['奶茶'], searchedAt: 'not-a-date',
+    resultSnapshot: null
+  });
+  assert(hInvalidDate.code === 0 && Number.isFinite(Date.parse(store.history.find((h) => h._id === hInvalidDate.data.historyId).searchedAt)),
+    'saveHistory 为非法 searchedAt 生成有效时间');
 
   const getHistory = require('../cloudfunctions/getHistory/index.js');
   const gh = await getHistory.main({});
-  assert(gh.code === 0 && gh.data.items.length === 1, 'getHistory 1 条');
-  assert(gh.data.items[0].favoriteCount === 1 && gh.data.items[0].displayTime.length > 0, 'favoriteCount 与 displayTime');
+  assert(gh.code === 0 && gh.data.items.length === 2, 'getHistory 2 条');
+  const restored = gh.data.items.find((item) => item.id === h1.data.historyId);
+  assert(restored.favoriteCount === 1 && restored.displayTime.length > 0, 'favoriteCount 与 displayTime');
+  assert(restored.midpointMode === 'auto', 'getHistory 返回 midpointMode');
 
   const clearHistory = require('../cloudfunctions/clearHistory/index.js');
   const c1 = await clearHistory.main({ confirm: true });
   const c2 = await clearHistory.main({ confirm: true });
   const c3 = await clearHistory.main({ confirm: false });
-  assert(c1.data.deletedCount === 1 && c2.data.deletedCount === 0, 'clearHistory 第二次 deletedCount=0');
+  assert(c1.data.deletedCount === 2 && c2.data.deletedCount === 0, 'clearHistory 第二次 deletedCount=0');
   assert(c3.code === 400, 'confirm 非 true 400');
   assert(store.favorites.length === 1, '清空历史不影响收藏');
 

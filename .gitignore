@@ -23,3 +23,6 @@ cloudfunctions/*/config.json
 *.bak
 *.tmp
 Thumbs.db
+
+# ===== 本地验收截图（不进入仓库 / 上传包）=====
+test/e2e/screenshots/

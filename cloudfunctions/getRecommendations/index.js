@@ -16,6 +16,7 @@ const db = cloud.database();
 const _ = db.command;
 
 const MAP_KEY = process.env.TENCENT_MAP_KEY || '';
+const REQUIRE_REAL_MAP = process.env.REQUIRE_REAL_MAP === 'true';
 const TRANSPORT_MODES = ['walking', 'driving', 'subway', 'bus'];
 // 绕行系数与速度（米/分钟）：占位估算口径
 const MODE_FACTOR = { walking: 1.25, driving: 1.45, subway: 1.5, bus: 1.5 };
@@ -68,7 +69,12 @@ async function searchNearbyByTencent(lat, lng, radius, keyword) {
   const url = `https://apis.map.qq.com/ws/place/v1/search?boundary=nearby(${lat},${lng},${radius})`
     + `&keyword=${encodeURIComponent(keyword)}&orderby=_distance&page_size=10&page_index=1&key=${MAP_KEY}`;
   const res = await httpGetJson(url);
-  if (res.status !== 0 || !Array.isArray(res.data)) return [];
+  if (res.status === 1001) return [];
+  if (res.status !== 0 || !Array.isArray(res.data)) {
+    const error = new Error(`place search failed with status ${res.status}`);
+    error.code = 'MAP_UPSTREAM_FAILED';
+    throw error;
+  }
   return res.data
     .filter((p) => p.location && typeof p.location.lat === 'number')
     .map((p) => ({
@@ -120,9 +126,11 @@ async function searchPlaces(midpoint, preferences, radius) {
   if (MAP_KEY) {
     const seen = new Set();
     const out = [];
+    let upstreamSucceeded = false;
     for (const kw of keywords) {
       try {
         const list = await searchNearbyByTencent(midpoint.lat, midpoint.lng, radius, kw);
+        upstreamSucceeded = true;
         for (const p of list) {
           if (!seen.has(p.id)) { seen.add(p.id); out.push(p); }
         }
@@ -131,6 +139,12 @@ async function searchPlaces(midpoint, preferences, radius) {
       }
     }
     if (out.length) return out;
+    if (upstreamSucceeded) return [];
+    if (REQUIRE_REAL_MAP) {
+      const error = new Error('all place searches failed');
+      error.code = 'MAP_UPSTREAM_FAILED';
+      throw error;
+    }
   }
   return searchNearbyBySeed(midpoint, radius, preferences || []);
 }
@@ -145,28 +159,25 @@ async function reverseGeocode(lat, lng) {
   return { name: null, address: null };
 }
 
-// 场所快照入库（places 集合），失败不影响主流程
+// 场所快照入库（places 集合）。后续路线、详情和收藏都依赖该快照，
+// 因此入库失败必须让本次推荐失败，避免返回无法继续使用的“假成功”数据。
 async function cachePlaces(places) {
-  try {
-    for (const p of places) {
-      const found = await db.collection('places').where({ id: p.id }).get();
-      const doc = {
-        id: p.id, name: p.name, type: p.type,
-        lat: round6(p.lat), lng: round6(p.lng),
-        address: p.address || '',
-        openHours: p.openHours || null,
-        imageUrl: p.imageUrl || null,
-        phone: null, rating: null, photos: [],
-        updatedAt: Date.now()
-      };
-      if (found.data && found.data.length) {
-        await db.collection('places').doc(found.data[0]._id).update({ data: doc });
-      } else {
-        await db.collection('places').add({ data: doc });
-      }
+  for (const p of places) {
+    const found = await db.collection('places').where({ id: p.id }).get();
+    const doc = {
+      id: p.id, name: p.name, type: p.type,
+      lat: round6(p.lat), lng: round6(p.lng),
+      address: p.address || '',
+      openHours: p.openHours || null,
+      imageUrl: p.imageUrl || null,
+      phone: null, rating: null, photos: [],
+      updatedAt: Date.now()
+    };
+    if (found.data && found.data.length) {
+      await db.collection('places').doc(found.data[0]._id).update({ data: doc });
+    } else {
+      await db.collection('places').add({ data: doc });
     }
-  } catch (e) {
-    console.error('[getRecommendations] places 快照入库失败', e && e.message);
   }
 }
 
@@ -182,7 +193,7 @@ exports.main = async (event) => {
     const midpointMode = event.midpointMode || 'auto';
 
     // ---- 参数校验（契约 4.1 错误表）----
-    if (!Array.isArray(departures) || departures.length === 0) {
+    if (!Array.isArray(departures) || departures.length < 2) {
       return fail(400, '请求参数有误，请稍后重试', requestId);
     }
     if (departures.length > 6) {
@@ -194,6 +205,9 @@ exports.main = async (event) => {
         || TRANSPORT_MODES.indexOf(d.transportMode) < 0) {
         return fail(400, '请求参数有误，请稍后重试', requestId);
       }
+    }
+    if (REQUIRE_REAL_MAP && !MAP_KEY) {
+      return fail(502, '地图服务暂时不可用', requestId);
     }
 
     // ---- 防连点（429）----
@@ -316,6 +330,9 @@ exports.main = async (event) => {
     }, requestId);
   } catch (e) {
     console.error('[getRecommendations]', e);
+    if (e && e.code === 'MAP_UPSTREAM_FAILED') {
+      return fail(502, '地图服务暂时不可用', requestId);
+    }
     return fail(500, '网络开小差了', requestId);
   }
 };

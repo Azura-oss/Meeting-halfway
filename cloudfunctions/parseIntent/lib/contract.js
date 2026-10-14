@@ -8,6 +8,20 @@ const INTENT_FIELDS = Object.freeze([
 const MAX_INPUT_TEXT_LENGTH = 500;
 const MAX_LIST_ITEMS = 8;
 const MAX_ITEM_LENGTH = 80;
+const TRANSPORT_MODE_ALIASES = Object.freeze({
+  walking: 'walking',
+  '步行': 'walking',
+  '走路': 'walking',
+  driving: 'driving',
+  '开车': 'driving',
+  '驾车': 'driving',
+  '自驾': 'driving',
+  subway: 'subway',
+  '地铁': 'subway',
+  bus: 'bus',
+  '公交': 'bus',
+  '公交车': 'bus'
+});
 
 const INTENT_JSON_SCHEMA = Object.freeze({
   type: 'object',
@@ -35,7 +49,7 @@ const INTENT_JSON_SCHEMA = Object.freeze({
     transportModes: {
       type: 'array',
       maxItems: MAX_LIST_ITEMS,
-      items: { type: 'string', minLength: 1, maxLength: MAX_ITEM_LENGTH }
+      items: { enum: ['walking', 'driving', 'subway', 'bus'] }
     },
     placePreferences: {
       type: 'array',
@@ -72,6 +86,24 @@ function normalizeStringArray(value, fieldName) {
     if (!normalized || normalized.length > MAX_ITEM_LENGTH) {
       throw createContractError(`${fieldName} contains an invalid value`);
     }
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+  return result;
+}
+
+function normalizeTransportModes(value) {
+  const modes = normalizeStringArray(value, 'transportModes');
+  const result = [];
+  const seen = new Set();
+  for (const mode of modes) {
+    const alias = mode.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(TRANSPORT_MODE_ALIASES, alias)) {
+      throw createContractError('transportModes contains an unsupported value');
+    }
+    const normalized = TRANSPORT_MODE_ALIASES[alias];
     if (!seen.has(normalized)) {
       seen.add(normalized);
       result.push(normalized);
@@ -138,7 +170,7 @@ function validateAndNormalizeIntent(value) {
   const intent = {
     partySize,
     origins: normalizeStringArray(value.origins, 'origins'),
-    transportModes: normalizeStringArray(value.transportModes, 'transportModes'),
+    transportModes: normalizeTransportModes(value.transportModes),
     placePreferences: normalizeStringArray(value.placePreferences, 'placePreferences'),
     missingFields: [],
     confidence: value.confidence

@@ -10,6 +10,7 @@ const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const MAP_KEY = process.env.TENCENT_MAP_KEY || '';
+const REQUIRE_REAL_MAP = process.env.REQUIRE_REAL_MAP === 'true';
 
 function genRequestId() {
   const d = new Date();
@@ -67,6 +68,9 @@ exports.main = async (event) => {
     let limit = Number.isInteger(event.limit) ? event.limit : 10;
     if (limit < 1) limit = 10;
     if (limit > 20) limit = 20;
+    if (REQUIRE_REAL_MAP && !MAP_KEY) {
+      return fail(502, '地图服务暂时不可用', requestId);
+    }
 
     // 简易防抖：同一用户 300ms 内重复调用返回 429
     const openid = (cloud.getWXContext() || {}).OPENID || '';
@@ -102,8 +106,13 @@ exports.main = async (event) => {
           // 关键词无匹配：按契约属于空态而非错误，返回空数组
           return ok([], requestId);
         }
+        if (REQUIRE_REAL_MAP) {
+          console.error('[searchPOI] 腾讯位置服务返回异常状态', { status: res.status });
+          return fail(502, '地图服务暂时不可用', requestId);
+        }
       } catch (e) {
         console.error('[searchPOI] 上游异常，降级本地种子', e && e.message);
+        if (REQUIRE_REAL_MAP) return fail(502, '地图服务暂时不可用', requestId);
       }
     }
 

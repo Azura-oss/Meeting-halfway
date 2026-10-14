@@ -6,7 +6,7 @@ const { createParseIntentHandler } = require('../lib/handler');
 const VALID_INTENT = {
   partySize: 3,
   origins: ['双流机场', '武侯祠'],
-  transportModes: ['地铁'],
+  transportModes: ['subway'],
   placePreferences: ['咖啡厅'],
   missingFields: [],
   confidence: 0.95
@@ -44,7 +44,12 @@ function createHarness(overrides = {}) {
 }
 
 test('returns a validated structured intent', async () => {
-  const { calls, handler } = createHarness();
+  const { calls, handler } = createHarness({
+    response: {
+      output: JSON.stringify({ ...VALID_INTENT, transportModes: ['地铁'] }),
+      requestId: 'llm-request-123'
+    }
+  });
   const result = await handler({
     text: '我们仨从双流机场、武侯祠出发，坐地铁，想找咖啡厅。'
   });
@@ -56,6 +61,33 @@ test('returns a validated structured intent', async () => {
   });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].jsonSchema.additionalProperties, false);
+});
+
+test('normalizes supported Chinese transport labels to frontend codes', async () => {
+  const { handler } = createHarness({
+    response: {
+      output: JSON.stringify({
+        ...VALID_INTENT,
+        transportModes: ['走路', '自驾', '公交车', '地铁']
+      })
+    }
+  });
+
+  const result = await handler({ text: '四个人分别走路、自驾、坐公交和地铁' });
+
+  assert.deepEqual(result.intent.transportModes, ['walking', 'driving', 'bus', 'subway']);
+});
+
+test('rejects unsupported transport labels instead of leaking them to the frontend', async () => {
+  const { handler } = createHarness({
+    response: {
+      output: JSON.stringify({ ...VALID_INTENT, transportModes: ['骑火箭'] })
+    }
+  });
+
+  const result = await handler({ text: '我们骑火箭出发' });
+
+  assert.equal(result.code, 'LLM_BAD_RESPONSE');
 });
 
 test('accepts fenced JSON but returns only normalized data', async () => {
@@ -120,11 +152,16 @@ test('maps a model timeout to a retryable error', async () => {
 test('does not expose upstream error details', async () => {
   const error = new Error('provider secret and raw response must stay private');
   error.code = 'UPSTREAM_FAILURE';
-  const { handler } = createHarness({ error });
+  error.statusCode = 400;
+  error.upstreamCode = 'invalid_request_error';
+  const { handler, logs } = createHarness({ error });
   const result = await handler({ text: '我们三个人坐地铁去吃饭' });
 
   assert.equal(result.code, 'LLM_FAILED');
   assert.equal(JSON.stringify(result).includes('secret'), false);
+  assert.equal(logs[0].data.upstreamStatus, 400);
+  assert.equal(logs[0].data.upstreamCode, 'invalid_request_error');
+  assert.equal(JSON.stringify(logs).includes('provider secret'), false);
 });
 
 test('logs metadata without logging the recognized text', async () => {

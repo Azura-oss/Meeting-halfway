@@ -37,7 +37,7 @@ Page({
       departures: record.departures,
       preferences: record.preferences || [],
       strategy: record.strategy || null,
-      midpointMode: 'auto',
+      midpointMode: record.midpointMode || 'auto',
       fromHistory: true,
       searchedAt: record.searchedAt,
       midpoint: record.midpoint,

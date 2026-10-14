@@ -14,6 +14,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 
 const MAP_KEY = process.env.TENCENT_MAP_KEY || '';
+const REQUIRE_REAL_MAP = process.env.REQUIRE_REAL_MAP === 'true';
 const TRANSPORT_MODES = ['walking', 'driving', 'subway', 'bus'];
 const MODE_FACTOR = { walking: 1.25, driving: 1.45, subway: 1.5, bus: 1.5 };
 const MODE_SPEED = { walking: 75, driving: 400, subway: 460, bus: 280 };
@@ -231,7 +232,7 @@ exports.main = async (event) => {
     if (!placeId || typeof placeId !== 'string') {
       return fail(400, '请求参数有误，请稍后重试', requestId);
     }
-    if (!Array.isArray(departures) || departures.length === 0) {
+    if (!Array.isArray(departures) || departures.length < 2) {
       return fail(400, '请求参数有误，请稍后重试', requestId);
     }
     if (departures.length > 6) {
@@ -242,6 +243,9 @@ exports.main = async (event) => {
         || TRANSPORT_MODES.indexOf(d.transportMode) < 0) {
         return fail(400, '请求参数有误，请稍后重试', requestId);
       }
+    }
+    if (REQUIRE_REAL_MAP && !MAP_KEY) {
+      return fail(502, '地图服务暂时不可用', requestId);
     }
 
     // ---- placeId 校验（快照不存在 → 404）----
@@ -260,6 +264,7 @@ exports.main = async (event) => {
           r = await routeByTencent({ lat: d.lat, lng: d.lng }, { lat: place.lat, lng: place.lng }, d.transportMode, strategy);
         } catch (e) {
           console.error('[getRoutes] 上游路径规划失败，降级占位路线', e && e.message);
+          if (REQUIRE_REAL_MAP) return fail(502, '地图服务暂时不可用', requestId);
           r = fallbackRoute(d, place);
         }
       } else {

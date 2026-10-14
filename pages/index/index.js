@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 const MIN_COUNT = 2;
 const MAX_COUNT = 6;
+const MAX_RECORD_SECONDS = 45;
 const CANCEL_DISTANCE = -50;
 const FIELD_LABELS = {
   partySize: '人数', origins: '出发地', transportModes: '出行方式', placePreferences: '场所偏好'
@@ -196,9 +197,9 @@ Page({
     this.recordTimer = setInterval(() => {
       const seconds = this.data.recordSeconds + 1;
       this.setData({ recordSeconds: seconds, recordingTime: '00:' + String(seconds).padStart(2, '0') });
-      if (seconds >= 60) this.stopRecord(false);
+      if (seconds >= MAX_RECORD_SECONDS) this.stopRecord(false);
     }, 1000);
-    this.recorder.start({ duration: 60000, format: 'mp3', sampleRate: 16000, numberOfChannels: 1, encodeBitRate: 48000 });
+    this.recorder.start({ duration: MAX_RECORD_SECONDS * 1000, format: 'mp3', sampleRate: 16000, numberOfChannels: 1, encodeBitRate: 48000 });
   },
 
   onVoiceTouchMove(e) {

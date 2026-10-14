@@ -65,6 +65,17 @@ Page({
     this.loadRecommendations(false);
   },
 
+  onShow() {
+    if (!this.context || this.destroyed) return;
+    const detailContext = getApp().globalData.detailContext;
+    const change = detailContext && detailContext.favoriteChange;
+    if (!change || change.placeId !== detailContext.placeId) return;
+    delete detailContext.favoriteChange;
+    if (!this.data.places.some(item => item.id === change.placeId)) return;
+    this.applyFavoriteState(change.placeId, change.isFavorite);
+    this.saveHistorySnapshot();
+  },
+
   onUnload() { this.destroyed = true; },
 
   async loadRecommendations(isStrategyChange) {
@@ -171,7 +182,11 @@ Page({
       arrivalList: place.participantMetrics || []
     });
     try {
-      const data = await api.getRoutes({ placeId: id, departures: this.data.departures });
+      const data = await api.getRoutes({
+        placeId: id,
+        departures: this.data.departures,
+        strategy: this.data.showStrategy ? this.data.strategy : null
+      });
       if (this.destroyed || serial !== this.routeSerial) return;
       const routes = data.routes || [];
       this.setData({
@@ -227,16 +242,25 @@ Page({
     try {
       const result = await api.toggleFavorite({ placeId: id, action: place.isFavorite ? 'remove' : 'add' });
       if (this.destroyed) return;
-      const favoritedIds = this.data.favoritedIds.filter(item => item !== id);
-      if (result.isFavorite) favoritedIds.push(id);
-      const updated = this.data.places.map(item => item.id === id ? Object.assign({}, item, { isFavorite: result.isFavorite }) : item);
-      this.setData({ favoritedIds, places: this.decorate(updated, this.data.pinnedIds, favoritedIds) });
+      this.applyFavoriteState(id, result.isFavorite);
       this.saveHistorySnapshot();
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });
     } finally {
       if (!this.destroyed) this.setData({ favoriteBusyId: '' });
     }
+  },
+
+  applyFavoriteState(id, isFavorite) {
+    const favoritedIds = this.data.favoritedIds.filter(item => item !== id);
+    if (isFavorite) favoritedIds.push(id);
+    const updated = this.data.places.map(item => item.id === id
+      ? Object.assign({}, item, { isFavorite: !!isFavorite })
+      : item);
+    this.setData({
+      favoritedIds,
+      places: this.decorate(updated, this.data.pinnedIds, favoritedIds)
+    });
   },
 
   saveHistorySnapshot() {

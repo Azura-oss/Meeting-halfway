@@ -35,9 +35,14 @@ NajianApp/
   ```javascript
   // utils/config.local.js（不提交）
   module.exports = {
-    cloudEnv: '真实环境 ID'
+    cloudEnv: '真实环境 ID',
+    // 可选：隔离联调时只让指定函数走真实云端，其余仍保持 Mock。
+    realFunctions: ['asrRecognize', 'parseIntent']
   };
   ```
+
+- `realFunctions` 只在微信小程序运行时生效；可逐个加入正在联调的函数，让其他接口继续走 Mock。
+  本地 Node 测试仍按公开配置运行，避免误调云端。
 
 - `utils/api.js` 启动时优先 `require('./config.local')`，读取失败才回落 `config.js` 的占位符，
   因此拉取公开仓库的默认代码即可直接跑 mock，无需任何本地配置。

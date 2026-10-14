@@ -64,6 +64,13 @@ Page({
       });
       if (this.destroyed) return;
       this.setData({ 'shopInfo.isFavorite': result.isFavorite });
+      const detailContext = getApp().globalData.detailContext;
+      if (detailContext && detailContext.placeId === this.placeId) {
+        detailContext.favoriteChange = {
+          placeId: this.placeId,
+          isFavorite: result.isFavorite
+        };
+      }
       wx.showToast({ title: result.isFavorite ? '已收藏' : '已取消收藏', icon: 'none' });
     } catch (err) {
       wx.showToast({ title: err.message, icon: 'none' });

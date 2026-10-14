@@ -28,23 +28,22 @@ function validateEndpoint(value) {
 }
 
 function buildRequestBody({ systemPrompt, userText, jsonSchema, model = DEFAULT_MODEL }) {
+  const schemaInstruction = [
+    systemPrompt,
+    '必须只返回一个 JSON 对象，并严格使用下面的字段、类型和约束：',
+    JSON.stringify(jsonSchema)
+  ].join('\n');
   return {
     model,
     messages: [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: schemaInstruction },
       { role: 'user', content: userText }
     ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'najian_meeting_intent',
-        strict: true,
-        schema: jsonSchema
-      }
-    },
+    response_format: { type: 'json_object' },
     stream: false,
+    thinking: { type: 'disabled' },
     temperature: 0,
-    max_tokens: 400
+    max_tokens: 1200
   };
 }
 
@@ -80,12 +79,21 @@ function postJson({ endpoint, apiKey, body, timeoutMs = 15000 }) {
           return;
         }
 
+        const upstreamCode = parsed && parsed.error && parsed.error.code
+          ? String(parsed.error.code)
+          : null;
         if (response.statusCode === 401 || response.statusCode === 403) {
-          reject(createCodedError('TOKENHUB_AUTH_FAILED', 'TokenHub authentication failed'));
+          const authError = createCodedError('TOKENHUB_AUTH_FAILED', 'TokenHub authentication failed');
+          authError.statusCode = response.statusCode;
+          authError.upstreamCode = upstreamCode;
+          authError.requestId = response.headers['x-request-id'] || parsed.id || null;
+          reject(authError);
           return;
         }
         if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
           const upstreamError = createCodedError('LLM_FAILED', `TokenHub HTTP ${response.statusCode || 0}`);
+          upstreamError.statusCode = response.statusCode || 0;
+          upstreamError.upstreamCode = upstreamCode;
           upstreamError.requestId = response.headers['x-request-id'] || null;
           reject(upstreamError);
           return;

@@ -54,6 +54,7 @@ getRoutes / getPlaceDetail / toggleFavorite 依据它校验 placeId 是否有效
 | transportModes | string[] | 去重后的出行方式 |
 | preferences | string[] | 本次偏好 |
 | strategy | string \| null | 生效策略 |
+| midpointMode | string | 折中点模式（auto / manual） |
 | midpoint | object \| null | 完整折中对象（name/lat/lng/address/source） |
 | searchedAt | string | 搜索时间 ISO 8601 |
 | searchRadiusMeters | number | 本次实际搜索半径 |
@@ -64,7 +65,8 @@ getRoutes / getPlaceDetail / toggleFavorite 依据它校验 placeId 是否有效
 | favoriteCount | number | 收藏数量 |
 | createdAt | number | 创建时间戳（毫秒） |
 
-索引建议：`openid + searchedAt` 组合索引（倒序 + 去重查询）；每用户最多 50 条由
+索引建议：`openid + searchedAt` 组合索引（列表倒序与旧记录淘汰查询）；去重由
+saveHistory 对最近记录按出发地/交通方式、偏好、策略和折中点模式生成签名完成。每用户最多 50 条由
 saveHistory 写入后自动淘汰，无需定时任务。
 
 ## 权限规则汇总

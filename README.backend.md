@@ -25,20 +25,22 @@ asrRecognize / parseIntent / reportEvent 由梁负责。
    填入 TENCENT_MAP_KEY（searchPOI、getRecommendations、getRoutes 需要）。
    config.json 已被 .gitignore 排除，不会提交。也可在云开发控制台手动添加环境变量。
 5. 前端 service 层按契约 2.2 适配层调用 wx.cloud.callFunction，页面不判断 ok / code。
+6. 正式联调和上线环境为 `searchPOI`、`getRecommendations`、`getRoutes` 配置
+   `REQUIRE_REAL_MAP=true`。此时缺少地图 Key 或上游失败会返回 502，禁止静默降级为种子/估算数据。
 
 ## 三、无 Key 降级（保证闭环联调）
 
-未配置 TENCENT_MAP_KEY 时自动降级为内置种子数据（成都地标 POI + 市中心候选场所），返回结构仍与契约完全一致，满足契约 9.2「允许占位结果，但结构必须正确」。配置 Key 后自动切换为腾讯位置服务（suggestion / 周边搜索 / 逆地理编码 / 路径规划），无需改代码。
+开发环境未配置 `TENCENT_MAP_KEY` 且未开启 `REQUIRE_REAL_MAP` 时，会降级为内置种子数据（成都地标 POI + 市中心候选场所），用于本地闭环测试。配置 Key 后切换为腾讯位置服务；真实服务正常返回空结果时保持空结果，不混入种子数据。正式联调和上线必须同时设置 `REQUIRE_REAL_MAP=true`，使缺 Key 或上游失败显式返回 502。
 
 ## 四、与契约的对齐要点（V1.1）
 
 - 双返回结构：业务接口统一 { code, msg, data, requestId }；失败时 data: null。
-- 6 人上限：departures 超过 6 返回 code 400、「最多支持 6 人同行」。
+- 2–6 人范围：departures 少于 2 人返回参数错误，超过 6 人返回 code 400、「最多支持 6 人同行」。
 - participantMetrics：每人 distanceMeters / durationMinutes / transportMode；averageDistanceMeters 为均值。
 - 搜索半径：先 1000m，无结果自动扩 5000m 并 distanceExpanded: true；仍无结果 places: []（正常空态）。
 - strategy：仅全员 subway 时生效，否则响应返回 null。
 - 收藏幂等：重复 add / remove 均返回 code 0 与最终状态；isFavorite 统一由 getRecommendations / getPlaceDetail 返回。
-- 历史：saveHistory 按 openid + searchedAt + departures 去重；最多 50 条；clearHistory 只删 history 集合并返回 deletedCount。
+- 历史：saveHistory 按 openid + 出发地/交通方式 + 偏好 + 策略 + 折中点模式去重，不把 searchedAt 纳入签名；结果快照最多 20 条；历史最多 50 条；clearHistory 只删 history 集合并返回 deletedCount。
 - 空值形态：空列表 []、空对象 null；距离 *Meters、耗时 *Minutes；出行方式 walking/driving/subway/bus。
 - placeId 来源：getRecommendations 将候选场所快照写入 places 集合；getRoutes / getPlaceDetail / toggleFavorite 依据快照校验，无效返回 404。
 

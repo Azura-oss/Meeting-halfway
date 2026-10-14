@@ -12,8 +12,10 @@
     "test:mock": "node test/frontend_mock.js",
     "test:pages": "node test/e2e/run.js",
     "test:smoke": "node test/smoke.js",
-    "test:voice": "node --test cloudfunctions/asrRecognize/test/*.test.js cloudfunctions/parseIntent/test/*.test.js test/voice_contract.test.js",
-    "test:all": "npm run test:mock && npm run test:pages && npm run test:smoke && npm run test:voice"
+    "test:voice": "node --test cloudfunctions/asrRecognize/test/*.test.js cloudfunctions/parseIntent/test/*.test.js test/api_selective_real.test.js test/voice_contract.test.js",
+    "test:backend-guard": "node --test test/backend_real_guard.test.js",
+    "test:packaging": "node --test test/packaging.test.js",
+    "test:all": "npm run test:mock && npm run test:pages && npm run test:smoke && npm run test:voice && npm run test:backend-guard && npm run test:packaging"
   },
   "repository": {
     "type": "git",

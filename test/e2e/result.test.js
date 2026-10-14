@@ -53,6 +53,36 @@ module.exports = {
       }
     },
     {
+      name: '全员地铁时路线请求携带当前策略，混合交通不携带策略',
+      async run() {
+        const originalGetRoutes = api.getRoutes;
+        const requests = [];
+        api.getRoutes = params => {
+          requests.push(params);
+          return originalGetRoutes(params);
+        };
+        try {
+          const subwayPage = await loadResult();
+          await subwayPage.onSelectPlace(event({ id: 'p1' }));
+          assert.strictEqual(requests[0].strategy, 'least_transfer');
+          subwayPage.onSwitchStrategy(event({ key: 'least_stops' }));
+          await waitFor(() => !subwayPage.data.loading, '策略切换推荐超时');
+          await subwayPage.onSelectPlace(event({ id: 'p1' }));
+          assert.strictEqual(requests[1].strategy, 'least_stops');
+          subwayPage.onUnload();
+
+          const mixed = JSON.parse(JSON.stringify(departures));
+          mixed[1].transportMode = 'bus';
+          const mixedPage = await loadResult({ departures: mixed, strategy: 'least_transfer' });
+          await mixedPage.onSelectPlace(event({ id: 'p1' }));
+          assert.strictEqual(requests[2].strategy, null);
+          mixedPage.onUnload();
+        } finally {
+          api.getRoutes = originalGetRoutes;
+        }
+      }
+    },
+    {
       name: '收藏请求中阻止快速重复点击',
       async run() {
         api.config.mockDelay = 30;
@@ -79,6 +109,24 @@ module.exports = {
           api.toggleFavorite = originalToggle;
           page.onUnload();
         }
+      }
+    },
+    {
+      name: '详情页收藏后返回结果页立即同步收藏状态',
+      async run() {
+        const page = await loadResult();
+        page.goToDetail(event({ id: 'p1' }));
+        const detail = loadPage('pages/shop-detail/shop-detail.js');
+        detail.onLoad({ id: 'p1' });
+        await waitFor(() => !detail.data.loading, '详情页加载超时');
+
+        await detail.onToggleFav();
+        detail.onUnload();
+        page.onShow();
+
+        assert.strictEqual(page.data.places.find(item => item.id === 'p1').isFavorite, true);
+        assert(page.data.favoritedIds.includes('p1'));
+        page.onUnload();
       }
     },
     {
