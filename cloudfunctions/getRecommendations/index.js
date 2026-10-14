@@ -138,7 +138,12 @@ async function searchPlaces(midpoint, preferences, radius) {
         console.error('[getRecommendations] 上游搜索异常，降级本地种子', e && e.message);
       }
     }
-    if (out.length) return out;
+    // 腾讯位置服务在「半径内无匹配」时会忽略 boundary、直接返回远处的兜底结果
+    // （实测：半径 1000m 时 keyword=滑雪 仍返回 3.3~9.6km 外的场所）。
+    // 因此必须按实际距离二次过滤，否则会出现「推荐到 7 公里外」的无关场所，
+    // 并且「1km 空 → 扩到 5km」和空态提示都永远不会触发。
+    const within = out.filter((p) => haversine(midpoint.lat, midpoint.lng, p.lat, p.lng) <= radius * 1.1);
+    if (within.length) return within;
     if (upstreamSucceeded) return [];
     if (REQUIRE_REAL_MAP) {
       const error = new Error('all place searches failed');
