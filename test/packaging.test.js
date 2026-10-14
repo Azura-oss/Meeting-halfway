@@ -20,14 +20,20 @@ test('真机调试包排除仅开发阶段的大目录', () => {
 });
 
 test('云函数目录内不得存放任何含密钥的文件', () => {
-  // 实测（微信开发者工具 2.02.2608080）：cloudfunctions/ 会被打入小程序包 ——
-  // 在 cloudfunctions/ 放入 200KB 探针后，预览包体从 95.1KB 涨到 290.4KB；
-  // 且把 cloudfunctions 加入 packOptions.ignore 并重载项目配置后依然无效
-  // （打包器会强制包含 cloudfunctionRoot）。
+  // 实测（微信开发者工具 2.02.2608080）：
+  //   1. 在 cloudfunctions/ 放入 200KB 的 .bin 探针后，预览包体从 95.1KB 涨到
+  //      290.4KB（+200000 字节）—— 无论探针放在 cloudfunctions/ 根目录还是
+  //      函数子目录内，结果相同。说明云函数目录下的文件确实会进入小程序包。
+  //   2. 把 cloudfunctions 加入 packOptions.ignore 并重载项目配置
+  //      （cli close + cli open）后探针依然生效，说明打包器会强制包含
+  //      cloudfunctionRoot，忽略规则无效。
+  //   3. 同样位置放 2KB 的 .json（含 config.json）时包体数值未变化，
+  //      但尚不能据此断定 .json 一定被排除（也可能是包体统计口径所致），
+  //      未能取得包内实际文件清单作为确证。
   //
-  // 因此唯一可靠的防线是：云函数目录内不放任何密钥文件。
+  // 结论：无法证实 cloudfunctions/*/config.json 不会被打包，因此按"会"处理。
   // 约定：密钥只保存在云函数环境变量（控制台 / CloudBase CLI）中，
-  // 不得落在 cloudfunctions/*/config.json 这类会被打包的位置。
+  // 不落在 cloudfunctions/ 下的任何文件里。
   const fnRoot = path.join(ROOT, 'cloudfunctions');
   const offenders = [];
 

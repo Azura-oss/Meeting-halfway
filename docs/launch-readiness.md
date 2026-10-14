@@ -27,16 +27,24 @@
   - `getRoutes` 返回真实路线（含 polyline 轨迹点）
 - [x] 全部 34 个偏好选项对真实地点搜索接口的可用性实测：**均可返回结果**（「公园广场」「棋牌游戏」等组合词靠上游模糊匹配兜住）。
 
-### 🔴 安全发现：`cloudfunctions/` 会被打进小程序包（2026-10-15 02:45）
+### 🔴 安全发现：云函数目录下的文件可能进入小程序包（2026-10-15 02:45，结论已收敛）
 
-- **实测确认**：在 `cloudfunctions/` 内放入 200 KB 探针文件后，预览包体从 **95.1 KB → 290.4 KB**，说明云函数目录确实进入小程序包。
-- **风险**：任何放在 `cloudfunctions/` 下的密钥文件都会随预览版/体验版下发到客户端。
-- **处置**：
-  - 已删除 `cloudfunctions/{searchPOI,getRecommendations,getRoutes}/config.json`（含腾讯位置服务 Key）；密钥继续只保存在云函数环境变量侧。
-  - 已尝试把 `cloudfunctions` 加入 `packOptions.ignore` 并重载项目配置（`cli close` + `cli open`）—— **实测无效**，探针仍使包体升至 290.4 KB。打包器会强制包含 `cloudfunctionRoot`。该条目保留作兜底，但**不可依赖**。
-  - 新增回归测试「云函数目录内不得存放任何含密钥的文件」，守住真正的漏洞点。
-- **遗留**：`cloudfunctions/` 内的服务端源码与种子数据仍会随包下发（非密钥，属信息暴露）。彻底隔离需把项目改为 `miniprogramRoot: "miniprogram/"` 的两层结构，属较大改动，本轮不做。
-- **建议**：地图 Key 曾随 02:13、02:28 两次预览包下发到测试机。若不放心，可在腾讯位置服务控制台重置该 Key 并重新配置云函数环境变量。
+**已证实的部分：**
+
+- 在 `cloudfunctions/` 放入 200 KB 的 `.bin` 探针后，预览包体从 **95.1 KB → 290.4 KB**（+200000 字节）。探针放在 `cloudfunctions/` 根目录或函数子目录（如 `cloudfunctions/searchPOI/`）内，结果相同。→ **云函数目录下的文件确实会计入小程序包。**
+- 把 `cloudfunctions` 加入 `packOptions.ignore` 并重载项目配置（`cli close` + `cli open`）后探针依然生效 → **打包器强制包含 `cloudfunctionRoot`，忽略规则无效。**（该条目保留作兜底，但不可依赖。）
+
+**未能证实、按最坏情况处理的部分：**
+
+- 在同一位置放约 2 KB 的 `.json`（含 `config.json`）时包体数值未变化，但**这不足以证明 `.json` 被排除**（也可能是包体统计口径所致）。本轮未能取到包内实际文件清单作为确证。
+- 因此**无法证实 `cloudfunctions/*/config.json` 不会被打包，按"会"处理**。
+
+**处置：**
+
+- 已删除本轮为配置地图环境变量而生成的 `cloudfunctions/{searchPOI,getRecommendations,getRoutes}/config.json`；密钥今后只保存在云函数环境变量中。
+- 新增回归测试「云函数目录内不得存放任何含密钥的文件」，作为长期防线。
+- **建议重置地图 Key**：无法排除该 Key 曾随 02:13、02:28 两次预览包下发到测试机的可能，重置成本很低（控制台重建 Key → 重配环境变量）。
+- 遗留：`cloudfunctions/` 下的服务端源码与种子数据是否随包下发同样未确证。彻底隔离需把项目改为 `miniprogramRoot: "miniprogram/"` 的两层结构，属较大改动，本轮不做。
 
 ### 本轮真机回归发现与处理（2026-10-15 02:25）
 
