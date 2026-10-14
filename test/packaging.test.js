@@ -14,9 +14,31 @@ test('真机调试包排除仅开发阶段的大目录', () => {
       .map(item => item.value)
   );
 
+  assert(ignoredFolders.has('cloudfunctions'));
   assert(ignoredFolders.has('node_modules'));
   assert(ignoredFolders.has('test'));
   assert(ignoredFolders.has('docs'));
+  assert(ignoredFolders.has('database'));
+});
+
+test('packOptions.ignore 只保留 folder 类型', () => {
+  // 实测（微信开发者工具 2.02.2608080）：ignore 的 folder 类型有效
+  // （test/ 有 35MB、docs/ 有 1.7MB，但上传包仅 214.7KB，二者确实被排除）；
+  // 而 file / suffix 类型无效 —— 在根目录放入 200KB 探针并加入
+  // {type:'file'} 忽略规则后，包体仍为 290.4KB，与不加规则完全相同。
+  // 因此不要依赖文件级忽略，只保留 folder 规则。
+  const types = new Set(config.packOptions.ignore.map(item => item.type));
+  assert.deepEqual([...types], ['folder']);
+});
+
+test('内部资料不得放在 miniprogramRoot 根目录', () => {
+  // miniprogramRoot 为 "./"，根目录下的文件一定会随包下发到客户端，
+  // 且无法通过文件级 ignore 排除。接口约定、后端说明等内部资料必须
+  // 放进已被忽略的目录（docs/ 、database/ 、test/）。
+  const suspects = fs.readdirSync(ROOT)
+    .filter(name => /^(api_contract|README\.backend)/.test(name) || /接口约定/.test(name));
+
+  assert.deepEqual(suspects, [], '以下内部资料位于根目录，会随包下发，请移入 docs/：' + suspects.join(', '));
 });
 
 test('云函数目录内不得存放任何含密钥的文件', () => {
