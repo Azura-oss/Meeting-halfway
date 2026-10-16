@@ -3,9 +3,241 @@ const {
   setAuthorizeAllowed, setModalConfirm, waitFor
 } = require('./helpers');
 
+function visibleSuggestionIndices(page) {
+  const fs = require('fs');
+  const path = require('path');
+  const template = fs.readFileSync(path.join(__dirname, '../../pages/index/index.wxml'), 'utf8');
+  const condition = template.match(/class="poi-suggestions e2e-poi-suggestions"[^>]*wx:if="\{\{([^]*?)\}\}"/)[1];
+  return page.data.departureList.flatMap((item, index) =>
+    Function('item', 'index', 'activeDepartureIndex', 'return (' + condition + ')')(
+      item, index, page.data.activeDepartureIndex
+    ) ? [index] : []);
+}
+
+async function withAmbiguousVoice(run) {
+  const originals = { parseIntent: api.parseIntent, searchPOI: api.searchPOI };
+  const origins = ['西南民族大学', '武侯祠', '人民公园'];
+  api.parseIntent = async () => ({
+    partySize: 3, origins, transportModes: ['subway'],
+    placePreferences: ['咖啡厅'], missingFields: [], confidence: 0.95
+  });
+  api.searchPOI = async ({ keyword }) => [1, 2, 3, 4, 5].map(i => ({
+    id: keyword + '-' + i, title: keyword + '（入口' + i + '）',
+    address: '成都市测试地址', lat: 30.6, lng: 104.0
+  }));
+  const page = loadPage('pages/index/index.js');
+  page.onLoad();
+  try { await run(page, origins); }
+  finally { page.onUnload(); Object.assign(api, originals); }
+}
+
 module.exports = {
   name: '首页与偏好页',
   cases: [
+    {
+      name: '语音多地点歧义只展开一人，选完按顺序确认且保留其余候选',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          await page.applyIntent('三个人从三个有歧义的地点出发');
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+          assert.strictEqual(page.data.canNext, false);
+          page.onSelectPOI(event({ index: 0, poiIndex: 1 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [1]);
+          assert.strictEqual(page.data.departureList[0].poi.id, '西南民族大学-2');
+          assert.strictEqual(page.data.departureList[2].suggestions.length, 5);
+          page.onSelectPOI(event({ index: 1, poiIndex: 0 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [2]);
+          page.onSelectPOI(event({ index: 2, poiIndex: 2 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), []);
+          assert.strictEqual(page.data.canNext, true);
+          assert.strictEqual(page.data.voiceComplete, true);
+          page.onNext();
+          assert.deepStrictEqual(app.globalData.pendingDraft.participants.map(p => p.poiId),
+            ['西南民族大学-2', '武侯祠-1', '人民公园-3']);
+        });
+      }
+    },
+    {
+      name: '语音地点可点选其他人切换，自动确认跳过已唯一匹配者',
+      async run() {
+        await withAmbiguousVoice(async (page, origins) => {
+          const search = api.searchPOI;
+          api.searchPOI = async params => params.keyword === origins[1]
+            ? [{ id: 'exact', title: origins[1], lat: 30.6, lng: 104.0 }]
+            : search(params);
+          await page.applyIntent('跳过唯一匹配');
+          assert(page.data.departureList[1].poi);
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+          page.onDepartureFocus(event({ index: 2 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [2]);
+          page.onDepartureFocus(event({ index: 0 }));
+          page.onSelectPOI(event({ index: 0, poiIndex: 0 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [2]);
+        });
+      }
+    },
+    {
+      name: '语音无结果或失败不猜地点，修改后可重搜并继续下一人',
+      async run() {
+        await withAmbiguousVoice(async (page, origins) => {
+          const search = api.searchPOI;
+          api.searchPOI = async params => {
+            if (params.keyword === origins[0]) return [];
+            if (params.keyword === origins[1]) throw new Error('搜索失败，请重试');
+            return search(params);
+          };
+          await page.applyIntent('含无结果和搜索失败');
+          assert.strictEqual(page.data.canNext, false);
+          assert.strictEqual(page.data.departureList[0].poi, null);
+          assert(page.data.departureList[0].searchMessage.includes('没有找到'));
+          assert(page.data.departureList[1].searchMessage.includes('搜索失败'));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), []);
+          page.onDepartureInput(event({ index: 0 }, '新地点'));
+          await waitFor(() => page.data.departureList[0].suggestions.length, '修改后重搜未完成');
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+          page.onSelectPOI(event({ index: 0, poiIndex: 0 }));
+          assert.strictEqual(page.data.activeDepartureIndex, 1);
+          assert.strictEqual(page.data.canNext, false);
+        });
+      }
+    },
+    {
+      name: '晚到的搜索不抢当前确认对象，清空后不恢复旧候选',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          await page.applyIntent('三个地点');
+          let resolveSearch;
+          api.searchPOI = () => new Promise(resolve => { resolveSearch = resolve; });
+          page.onDepartureInput(event({ index: 0 }, '重新搜索'));
+          const pending = page.loadSuggestions(0, '重新搜索');
+          page.onDepartureFocus(event({ index: 2 }));
+          resolveSearch([{ id: 'late', title: '晚到的候选' }]);
+          await pending;
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [2]);
+          const cleared = page.loadSuggestions(0, '重新搜索');
+          page.onClearInput(event({ index: 0 }));
+          resolveSearch([{ id: 'stale', title: '应丢弃' }]);
+          await cleared;
+          assert.strictEqual(page.data.departureList[0].value, '');
+          assert.deepStrictEqual(page.data.departureList[0].suggestions, []);
+          assert.strictEqual(page.data.departureList[0].searching, false);
+        });
+      }
+    },
+    {
+      name: '删除当前确认者或切换模式后，旧请求不能回填新行',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          await page.applyIntent('三个地点');
+          page.onDepartureFocus(event({ index: 1 }));
+          let rejectSearch;
+          api.searchPOI = () => new Promise((resolve, reject) => { rejectSearch = reject; });
+          const pending = page.loadSuggestions(1, '武侯祠');
+          page.onDeleteDeparture(event({ index: 1 }));
+          rejectSearch(new Error('旧请求失败'));
+          await pending;
+          assert.strictEqual(page.data.departureList.length, 2);
+          assert.strictEqual(page.data.departureList[1].value, '人民公园');
+          assert(!page.data.departureList[1].searchMessage.includes('旧请求'));
+          assert.strictEqual(visibleSuggestionIndices(page).length, 1);
+          let resolveSearch;
+          api.searchPOI = () => new Promise(resolve => { resolveSearch = resolve; });
+          const resetting = page.loadSuggestions(0, '西南民族大学');
+          page.resetAll();
+          resolveSearch([{ id: 'old', title: '旧语音地点' }]);
+          await resetting;
+          assert.deepStrictEqual(visibleSuggestionIndices(page), []);
+          assert(page.data.departureList.every(row => !row.searching && !row.searchMessage));
+        });
+      }
+    },
+    {
+      name: '切换模式与新语音识别后，旧的意图或地点查询不能恢复候选',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          const intent = await api.parseIntent();
+          let resolveIntent;
+          api.parseIntent = () => new Promise(resolve => { resolveIntent = resolve; });
+          const old = page.applyIntent('旧语音');
+          page.resetAll();
+          resolveIntent(intent);
+          await old;
+          assert.strictEqual(page.data.hasVoiceData, false);
+          assert.deepStrictEqual(visibleSuggestionIndices(page), []);
+          assert(page.data.departureList.every(row => row.value === ''));
+
+          api.parseIntent = async ({ text }) => ({ ...intent, origins: [text, '武侯祠', '人民公园'] });
+          const search = api.searchPOI;
+          let resolveOldPOI;
+          api.searchPOI = params => params.keyword === '旧地点'
+            ? new Promise(resolve => { resolveOldPOI = resolve; }) : search(params);
+          const pending = page.applyIntent('旧地点');
+          await waitFor(() => !!resolveOldPOI, '旧地点查询未开始');
+          await page.applyIntent('新地点');
+          resolveOldPOI([{ id: 'old', title: '旧地点' }]);
+          await pending;
+          assert.strictEqual(page.data.departureList[0].value, '新地点');
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+        });
+      }
+    },
+    {
+      name: '手动多行搜索只展开当前对象，切换后候选仍可选择',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          for (const [index, name] of ['手动地点甲', '手动地点乙'].entries()) {
+            page.onDepartureInput(event({ index }, name));
+            await page.loadSuggestions(index, name);
+          }
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [1]);
+          page.onDepartureFocus(event({ index: 0 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+          page.onSelectPOI(event({ index: 0, poiIndex: 0 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), []);
+          page.onDepartureFocus(event({ index: 1 }));
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [1]);
+        });
+      }
+    },
+    {
+      name: '删除其他参与人后，保留行的未完成搜索会重新返回候选',
+      async run() {
+        await withAmbiguousVoice(async page => {
+          page.onAddDeparture();
+          const pendingSearches = [];
+          api.searchPOI = () => new Promise(resolve => { pendingSearches.push(resolve); });
+          page.onDepartureInput(event({ index: 0 }, '手动地点'));
+          await waitFor(() => pendingSearches.length === 1, '第一人搜索未发出');
+          page.onDeleteDeparture(event({ index: 2 }));
+          const candidates = [{ id: 'kept', title: '手动地点入口' }];
+          pendingSearches.forEach(resolve => resolve(candidates));
+          await waitFor(() => page.data.departureList[0].suggestions.length > 0, '删除其他人使第一人的搜索丢失');
+          assert.deepStrictEqual(visibleSuggestionIndices(page), [0]);
+          page.onSelectPOI(event({ index: 0, poiIndex: 0 }));
+          assert.strictEqual(page.data.departureList[0].poi.id, 'kept');
+        });
+      }
+    },
+    {
+      name: '语音地点批量查询期间清空并删除参与人，晚到结果不得恢复旧表单',
+      async run() {
+        await withAmbiguousVoice(async (page, origins) => {
+          await page.applyIntent('已识别三个地点');
+          const pendingSearches = [];
+          api.searchPOI = () => new Promise(resolve => { pendingSearches.push(resolve); });
+          const parsing = page.applyIntent('重新解析同一段语音');
+          await waitFor(() => pendingSearches.length === 3, '批量查询尚未发出');
+          page.onClearInput(event({ index: 0 }));
+          page.onDeleteDeparture(event({ index: 1 }));
+          pendingSearches.forEach((resolve, i) => resolve([{ id: 'old-' + i, title: origins[i] }]));
+          await parsing;
+          assert.strictEqual(page.data.departureList.length, 2);
+          assert.strictEqual(page.data.departureList[0].value, '');
+          assert.strictEqual(page.data.departureList[1].value, origins[2]);
+          assert.strictEqual(page.data.canNext, false);
+        });
+      }
+    },
     {
       name: '最多 6 人且删除中间参与人后重新连续编号',
       async run() {

@@ -7,12 +7,14 @@
 
   <view class="section">
     <view class="section-title">出发地</view>
+    <view class="departure-confirm-hint" wx:if="{{hasVoiceData && activeDepartureIndex >= 0}}">请确认第 {{activeDepartureIndex + 1}} 位参与者的具体地点，选好后继续下一位</view>
 
     <view class="departure-list">
       <view class="departure-item e2e-departure-item" wx:for="{{departureList}}" wx:key="participantId">
         <view class="departure-badge">{{item.label}}</view>
 
-        <view class="departure-field">
+        <view class="departure-content">
+          <view class="departure-field">
           <input
             class="departure-input e2e-origin-input"
             value="{{item.value}}"
@@ -37,10 +39,11 @@
             data-index="{{index}}"
             catchtap="onDeleteDeparture"
           >−</view>
+          </view>
 
           <view class="poi-state e2e-poi-loading" wx:if="{{item.searching}}">正在搜索...</view>
           <view class="poi-state poi-state-error e2e-poi-message" wx:if="{{item.searchMessage}}">{{item.searchMessage}}</view>
-          <view class="poi-suggestions e2e-poi-suggestions" wx:if="{{item.suggestions.length}}">
+          <scroll-view class="poi-suggestions e2e-poi-suggestions" wx:if="{{activeDepartureIndex === index && item.suggestions.length}}" scroll-y style="height: {{item.suggestions.length > 2 ? 360 : item.suggestions.length * 156}}rpx;">
             <view
               class="poi-suggestion e2e-poi-option"
               wx:for="{{item.suggestions}}"
@@ -54,7 +57,7 @@
               <view class="poi-title">{{poi.title}}</view>
               <view class="poi-address">{{poi.address}}</view>
             </view>
-          </view>
+          </scroll-view>
         </view>
       </view>
     </view>

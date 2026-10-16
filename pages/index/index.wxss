@@ -53,8 +53,20 @@
 
 .departure-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20rpx;
+}
+
+.departure-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.departure-confirm-hint {
+  margin-bottom: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: var(--color-primary);
 }
 
 .departure-badge {
@@ -65,6 +77,7 @@
   width: 60rpx;
   height: 60rpx;
   margin-right: 20rpx;
+  margin-top: 14rpx;
   font-size: 24rpx;
   color: var(--color-text-secondary);
   background-color: var(--color-bg-page);
@@ -84,6 +97,8 @@
 
 .departure-input {
   flex: 1;
+  min-width: 0;
+  width: 0;
   height: 100%;
   font-size: 30rpx;
   color: var(--color-text-primary);
@@ -500,6 +515,7 @@
   position: relative;
   z-index: 20;
   margin-top: 10rpx;
+  max-height: 360rpx;
   overflow: hidden;
   border: 1rpx solid #e5e5e5;
   border-radius: 16rpx;
@@ -512,5 +528,5 @@
 }
 
 .poi-suggestion:last-child { border-bottom: 0; }
-.poi-title { font-size: 27rpx; color: #222222; }
-.poi-address { margin-top: 6rpx; font-size: 22rpx; color: #888888; }
+.poi-title { font-size: 27rpx; line-height: 1.4; color: #222222; overflow-wrap: break-word; }
+.poi-address { margin-top: 6rpx; font-size: 22rpx; line-height: 1.5; color: #888888; overflow-wrap: break-word; }
